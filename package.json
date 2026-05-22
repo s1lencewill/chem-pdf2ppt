@@ -1,0 +1,50 @@
+{
+  "name": "pdf2ppt",
+  "version": "2.0.0",
+  "description": "Chemistry academic paper PDF to PowerPoint/HTML converter with figure extraction, paper type classification, and academic slide generation",
+  "keywords": [
+    "pdf",
+    "ppt",
+    "powerpoint",
+    "chemistry",
+    "academic",
+    "paper",
+    "presentation",
+    "claude-code",
+    "skill",
+    "research",
+    "slide-deck",
+    "html-presentation"
+  ],
+  "homepage": "https://github.com/s1lencewill/PDF2PPT#readme",
+  "bugs": "https://github.com/s1lencewill/PDF2PPT/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/s1lencewill/PDF2PPT.git"
+  },
+  "license": "MIT",
+  "author": "s1lencewill",
+  "main": "index.js",
+  "bin": {
+    "pdf2ppt": "./cli.js"
+  },
+  "files": [
+    "SKILL.md",
+    "SKILL_EN.md",
+    "README.md",
+    "README_EN.md",
+    "scripts/",
+    "references/",
+    "assets/",
+    "examples/",
+    "bin/",
+    "requirements.txt"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "scripts": {
+    "test": "echo \"Run python scripts/analyze_paper.py test.pdf to test\"",
+    "postinstall": "node bin/postinstall.js"
+  }
+}

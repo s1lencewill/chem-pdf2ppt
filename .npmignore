@@ -1,0 +1,12 @@
+output/
+test/
+*.pptx
+*.html
+*.json
+!package.json
+__pycache__/
+*.pyc
+.DS_Store
+.git/
+.gitignore
+.claude-plugin/
