@@ -5,7 +5,7 @@
 [![license](https://img.shields.io/npm/l/chem-pdf2ppt)](https://github.com/s1lencewill/chem-pdf2ppt/blob/main/LICENSE)
 [![github stars](https://img.shields.io/github/stars/s1lencewill/chem-pdf2ppt?style=social)](https://github.com/s1lencewill/chem-pdf2ppt)
 
-将化学领域学术论文 PDF 转换为专业学术演示文稿。支持 **PPTX** 和 **HTML** 两种输出格式。
+将化学领域学术论文 PDF 转换为专业学术演示文稿的Agent skill。支持 **PPTX** 和 **HTML** 两种输出格式。
 
 ## 核心特性
 
