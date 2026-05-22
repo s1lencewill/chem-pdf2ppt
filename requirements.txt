@@ -1,0 +1,20 @@
+# PDF2PPT — Chemistry Academic PPT Generator
+# 化学学术论文 → PowerPoint 转换器
+
+# PDF reading and text extraction
+pymupdf>=1.23.0
+pdfplumber>=0.10.0
+
+# PPTX creation
+python-pptx>=0.6.23
+
+# Image processing
+Pillow>=10.0.0
+
+# PDF page to image conversion (optional, requires Poppler)
+pdf2image>=1.17.0
+
+# Note: poppler-utils is a system dependency for pdf2image
+#   macOS:  brew install poppler
+#   Linux:  sudo apt-get install poppler-utils
+#   Windows: https://github.com/oschwartz10612/poppler-windows/releases/
