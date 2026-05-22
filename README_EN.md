@@ -1,4 +1,9 @@
-# PDF2PPT — Chemistry Academic Paper → Presentation Converter
+# chem-pdf2ppt — Chemistry Academic Paper → Presentation Converter
+
+[![npm version](https://img.shields.io/npm/v/chem-pdf2ppt)](https://www.npmjs.com/package/chem-pdf2ppt)
+[![npm downloads](https://img.shields.io/npm/dm/chem-pdf2ppt)](https://www.npmjs.com/package/chem-pdf2ppt)
+[![license](https://img.shields.io/npm/l/chem-pdf2ppt)](https://github.com/s1lencewill/PDF2PPT/blob/main/LICENSE)
+[![github stars](https://img.shields.io/github/stars/s1lencewill/PDF2PPT?style=social)](https://github.com/s1lencewill/PDF2PPT)
 
 Convert chemistry academic paper PDFs into professional presentations for group meetings, defenses, and academic reports. Supports both **PPTX** and **HTML** output formats.
 

@@ -1,20 +1,28 @@
 {
   "name": "chem-pdf2ppt",
   "version": "2.0.0",
-  "description": "Chemistry academic paper PDF to PowerPoint/HTML converter with figure extraction, paper type classification, and academic slide generation",
+  "description": "Convert chemistry academic paper PDFs into professional PowerPoint & HTML presentations. Auto-detects paper type (experimental/theoretical/hybrid), extracts figures, generates structured slides for group meetings & conferences.",
   "keywords": [
-    "pdf",
-    "ppt",
-    "powerpoint",
+    "pdf-to-ppt",
+    "pdf2ppt",
     "chemistry",
+    "powerpoint",
+    "presentation",
     "academic",
     "paper",
-    "presentation",
-    "claude-code",
-    "skill",
     "research",
     "slide-deck",
-    "html-presentation"
+    "html-presentation",
+    "journal-club",
+    "group-meeting",
+    "scientific",
+    "chemistry-presentation",
+    "academic-ppt",
+    "theoretical-chemistry",
+    "computational-chemistry",
+    "claude-code-skill",
+    "figure-extraction",
+    "paper-to-slides"
   ],
   "homepage": "https://github.com/s1lencewill/PDF2PPT#readme",
   "bugs": "https://github.com/s1lencewill/PDF2PPT/issues",
@@ -24,6 +32,10 @@
   },
   "license": "MIT",
   "author": "s1lencewill",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/s1lencewill"
+  },
   "main": "index.js",
   "bin": {
     "chem-pdf2ppt": "./cli.js"
@@ -37,14 +49,14 @@
     "references/",
     "assets/",
     "examples/",
-    "bin/",
-    "requirements.txt"
+    "requirements.txt",
+    "index.js",
+    "cli.js"
   ],
   "engines": {
     "node": ">=16.0.0"
   },
   "scripts": {
-    "test": "echo \"Run python scripts/analyze_paper.py test.pdf to test\"",
-    "postinstall": "node bin/postinstall.js"
+    "test": "chem-pdf2ppt help"
   }
 }

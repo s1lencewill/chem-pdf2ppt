@@ -1,4 +1,9 @@
-# PDF2PPT — 化学学术论文 → 演示文稿转换器
+# chem-pdf2ppt — 化学学术论文 → 演示文稿转换器
+
+[![npm version](https://img.shields.io/npm/v/chem-pdf2ppt)](https://www.npmjs.com/package/chem-pdf2ppt)
+[![npm downloads](https://img.shields.io/npm/dm/chem-pdf2ppt)](https://www.npmjs.com/package/chem-pdf2ppt)
+[![license](https://img.shields.io/npm/l/chem-pdf2ppt)](https://github.com/s1lencewill/PDF2PPT/blob/main/LICENSE)
+[![github stars](https://img.shields.io/github/stars/s1lencewill/PDF2PPT?style=social)](https://github.com/s1lencewill/PDF2PPT)
 
 将化学领域学术论文 PDF 转换为专业学术演示文稿。支持 **PPTX** 和 **HTML** 两种输出格式。
 
@@ -37,6 +42,18 @@ pip install -r requirements.txt
 **依赖**：`pymupdf>=1.19.0` · `python-pptx>=0.6.23` · `pdfplumber>=0.10.0` · `Pillow>=10.0.0`
 
 `pdf2image` 可选（需系统安装 Poppler）。
+
+---
+
+## 为什么选择 chem-pdf2ppt？
+
+| | chem-pdf2ppt | 手动做 PPT | 通用 PDF→PPT 工具 |
+|---|---|---|---|
+| 化学论文理解 | 自动识别实验/计算/混合类型 | 靠你自己 | 不理解论文内容 |
+| 内容生成 | 从 PDF 提取真实数据，无占位符 | 2-4 小时/篇 | 截图转 PPT，无结构化内容 |
+| 图表处理 | 多策略提取 + 自动回退 | 手动截图裁剪 | 整页截图 |
+| 输出格式 | PPTX + HTML（横向翻页） | PPTX | PPTX |
+| 学术风格 | 4 套化学配色 + 结论式标题 | 看个人审美 | 通用模板 |
 
 ---
 
@@ -242,6 +259,21 @@ PDF2PPT/
 - **PyMuPDF**: 1.19+（自动兼容新旧 API）
 - **环境**: Claude Code / Claude Desktop / Cursor / VS Code / 任何 Python 环境
 - **HTML 输出**: 任何现代浏览器（Chrome / Firefox / Edge / Safari）
+
+## 推广与社区
+
+**如果你觉得有用，请：**
+- ⭐ [GitHub Star](https://github.com/s1lencewill/PDF2PPT) — 让更多研究者看到
+- 📦 [npm](https://www.npmjs.com/package/chem-pdf2ppt) — 每周下载量帮助排名
+- 🐛 [提交 Issue](https://github.com/s1lencewill/PDF2PPT/issues) — 反馈问题或建议
+
+**分享到学术社区：**
+- 知乎/小红书：分享你的使用体验
+- B站：录制使用教程
+- Twitter/X：`#chemistry #academicPPT #chemPDF2PPT`
+- GitHub Trending / Hacker News
+
+**需要帮助？** [GitHub Discussions](https://github.com/s1lencewill/PDF2PPT/discussions)
 
 ## 许可证
 
