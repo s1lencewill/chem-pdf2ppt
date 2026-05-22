@@ -21,7 +21,7 @@ function run(scriptName, extraArgs = []) {
 }
 
 const help = `
-PDF2PPT v2.0 — Chemistry Academic Paper to PPT/HTML Converter
+chem-pdf2ppt v2.0 — Chemistry Academic Paper to PPT/HTML Converter
 
 Commands:
   analyze <paper.pdf> [--json report.json]   Analyze paper structure and type
@@ -29,8 +29,8 @@ Commands:
   help                                       Show this help
 
 Examples:
-  pdf2ppt analyze paper.pdf --json analysis.json
-  pdf2ppt extract paper.pdf figures/ 300 --report
+  chem-pdf2ppt analyze paper.pdf --json analysis.json
+  chem-pdf2ppt extract paper.pdf figures/ 300 --report
 
 For building PPT/HTML presentations, use the Python API directly:
   from create_ppt import ChemistryPPT

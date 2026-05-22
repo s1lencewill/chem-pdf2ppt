@@ -17,6 +17,19 @@
 
 ## 安装
 
+### npm（推荐）
+
+```bash
+npm install -g chem-pdf2ppt
+```
+
+```bash
+chem-pdf2ppt analyze paper.pdf --json analysis.json
+chem-pdf2ppt extract paper.pdf figures/ 300 --report
+```
+
+### Python API
+
 ```bash
 pip install -r requirements.txt
 ```
