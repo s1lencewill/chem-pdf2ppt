@@ -2,8 +2,8 @@
 
 [![npm version](https://img.shields.io/npm/v/chem-pdf2ppt)](https://www.npmjs.com/package/chem-pdf2ppt)
 [![npm downloads](https://img.shields.io/npm/dm/chem-pdf2ppt)](https://www.npmjs.com/package/chem-pdf2ppt)
-[![license](https://img.shields.io/npm/l/chem-pdf2ppt)](https://github.com/s1lencewill/PDF2PPT/blob/main/LICENSE)
-[![github stars](https://img.shields.io/github/stars/s1lencewill/PDF2PPT?style=social)](https://github.com/s1lencewill/PDF2PPT)
+[![license](https://img.shields.io/npm/l/chem-pdf2ppt)](https://github.com/s1lencewill/chem-pdf2ppt/blob/main/LICENSE)
+[![github stars](https://img.shields.io/github/stars/s1lencewill/chem-pdf2ppt?style=social)](https://github.com/s1lencewill/chem-pdf2ppt)
 
 将化学领域学术论文 PDF 转换为专业学术演示文稿。支持 **PPTX** 和 **HTML** 两种输出格式。
 
@@ -263,9 +263,9 @@ PDF2PPT/
 ## 推广与社区
 
 **如果你觉得有用，请：**
-- ⭐ [GitHub Star](https://github.com/s1lencewill/PDF2PPT) — 让更多研究者看到
+- ⭐ [GitHub Star](https://github.com/s1lencewill/chem-pdf2ppt) — 让更多研究者看到
 - 📦 [npm](https://www.npmjs.com/package/chem-pdf2ppt) — 每周下载量帮助排名
-- 🐛 [提交 Issue](https://github.com/s1lencewill/PDF2PPT/issues) — 反馈问题或建议
+- 🐛 [提交 Issue](https://github.com/s1lencewill/chem-pdf2ppt/issues) — 反馈问题或建议
 
 **分享到学术社区：**
 - 知乎/小红书：分享你的使用体验
@@ -273,7 +273,7 @@ PDF2PPT/
 - Twitter/X：`#chemistry #academicPPT #chemPDF2PPT`
 - GitHub Trending / Hacker News
 
-**需要帮助？** [GitHub Discussions](https://github.com/s1lencewill/PDF2PPT/discussions)
+**需要帮助？** [GitHub Discussions](https://github.com/s1lencewill/chem-pdf2ppt/discussions)
 
 ## 许可证
 

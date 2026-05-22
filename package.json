@@ -1,6 +1,6 @@
 {
   "name": "chem-pdf2ppt",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Convert chemistry academic paper PDFs into professional PowerPoint & HTML presentations. Auto-detects paper type (experimental/theoretical/hybrid), extracts figures, generates structured slides for group meetings & conferences.",
   "keywords": [
     "pdf-to-ppt",
@@ -24,11 +24,11 @@
     "figure-extraction",
     "paper-to-slides"
   ],
-  "homepage": "https://github.com/s1lencewill/PDF2PPT#readme",
-  "bugs": "https://github.com/s1lencewill/PDF2PPT/issues",
+  "homepage": "https://github.com/s1lencewill/chem-pdf2ppt#readme",
+  "bugs": "https://github.com/s1lencewill/chem-pdf2ppt/issues",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/s1lencewill/PDF2PPT.git"
+    "url": "git+https://github.com/s1lencewill/chem-pdf2ppt.git"
   },
   "license": "MIT",
   "author": "s1lencewill",

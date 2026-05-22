@@ -36,7 +36,7 @@ For building PPT/HTML presentations, use the Python API directly:
   from create_ppt import ChemistryPPT
   from generate_html import HtmlPPT
 
-Full docs: https://github.com/s1lencewill/PDF2PPT
+Full docs: https://github.com/s1lencewill/chem-pdf2ppt
 `;
 
 switch (cmd) {
