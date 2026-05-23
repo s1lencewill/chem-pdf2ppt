@@ -314,7 +314,68 @@ html.save("output/presentation.html")
 - 响应式设计，适配投影仪和移动端
 - 无需本地服务器，无需安装任何依赖
 
-### Step 7: 验证与错误报告
+### Step 7: (可选) 生成学术阅读报告
+
+除 PPT/HTML 外，还可生成可直接发布到技术社区的 Markdown 学术阅读笔记：
+
+```python
+import sys
+sys.path.insert(0, '<SKILL_ROOT>/scripts')
+from generate_report import ReportBuilder
+
+r = ReportBuilder()
+r.set_meta(
+    title="论文标题",
+    authors="作者列表",
+    journal="期刊, 年, 卷, 页码",
+    doi="10.xxxx/xxxx",
+    paper_type="computational",  # experimental / computational / hybrid
+    difficulty=3,                # 1-5 星
+    prerequisites=["基础概念1", "基础概念2"],
+)
+
+# 填充论文信息
+r.paper['innovation'] = "2-3 句话核心创新点"
+r.paper['abstract'] = "摘要要点"
+r.paper['problem'] = "解决什么问题"
+r.paper['approach'] = "核心方案（含方法层级）"
+r.paper['contributions'] = ["贡献1", "贡献2"]
+r.paper['background'] = "背景与动机（可含 Markdown 格式）"
+
+# 添加方法章节
+r.add_section(3, "整体计算策略", "计算流程描述...")
+r.add_section(3, "势能面描述", "- **方法层级**：...\n- **基组**：...")
+r.add_section(3, "动力学与采样", "- **MD 类型**：...\n- **增强采样**：...")
+
+# 添加结果
+r.paper['result_chain'] = "结果逻辑链：A → B → C → ..."
+r.paper['key_results'] = [
+    {"title": "结果1标题", "points": ["要点1", "要点2"], "figure": "Figure 1"},
+]
+
+# 添加图表
+r.add_figure("Figure 1", "figures/fig1.png", "图表描述", ["关键信息1", "关键信息2"], "Section X.X")
+
+# 添加 Q&A
+r.add_qa("为什么选择这个方法？", "答案...", "principle")  # principle/detail/boundary/extension
+
+r.paper['limitations'] = ["局限1", "局限2"]
+r.paper['applicable_scenarios'] = ["✅ 适合场景", "❌ 不适合场景"]
+
+r.save("output/paper_report.md")
+```
+
+**报告结构**：
+1. 元信息（标题/作者/期刊/难度/前置知识）
+2. 总览（创新点 + 摘要）
+3. 论文概述（问题/方案/贡献）
+4. 背景与动机
+5. 核心方法（按论文类型自动适配：QC方法/力场/ML势/增强采样）
+6. 结果与讨论（逻辑链 + 关键结果 + 图表）
+7. 总结与思考（贡献/局限/适用场景）
+8. Q&A 深度思考（原理理解/细节辨析/边界条件/延伸思考）
+
+### Step 8: 验证与错误报告
 
 生成 PPTX 后执行检查。`ChemistryPPT` 内置了错误追踪：
 
@@ -430,6 +491,7 @@ output/
 | `scripts/convert_to_images.py` | 将 PDF 页面转为高清图片（用于图片型 PDF） |
 | `scripts/create_ppt.py` | 主脚本：创建化学学术 PPTX（ChemistryPPT 类） |
 | `scripts/generate_html.py` | HTML 生成器：创建带图单文件横向翻页网页 PPT |
+| `scripts/generate_report.py` | 报告生成器：创建学术阅读笔记 Markdown 报告 |
 
 ## 容错与回退
 
