@@ -2,9 +2,9 @@
 """
 化学学术论文 Markdown 报告生成器
 Chemistry Academic Paper Report Generator — produces publication-ready reading notes
+支持输出格式: Markdown, HTML (可打印为PDF)
 """
 import os
-import re
 
 
 def _safe_print(msg):
@@ -13,44 +13,28 @@ def _safe_print(msg):
     except UnicodeEncodeError:
         print(msg.encode('ascii', errors='replace').decode('ascii'))
 
-def _escape_md(text):
-    """Escape special markdown chars in plain text contexts (not code blocks)"""
-    return text
 
-# ============================================================
-# Paper Type Definitions
-# ============================================================
+def _find_cjk_font():
+    """查找系统中可用的中文字体 (.ttf/.otf)"""
+    search_paths = [
+        'C:/Windows/Fonts', '/usr/share/fonts',
+        '/System/Library/Fonts', '/Library/Fonts',
+        os.path.expanduser('~/.fonts'),
+    ]
+    candidates = [
+        'simhei.ttf', 'simkai.ttf', 'simfang.ttf',
+        'STXIHEI.TTF', 'STSONG.TTF', 'STKAITI.TTF',
+        'NotoSansSC-Regular.otf', 'SourceHanSansSC-Regular.otf',
+    ]
+    for d in search_paths:
+        if not os.path.isdir(d):
+            continue
+        files = {f.lower(): f for f in os.listdir(d)}
+        for name in candidates:
+            if name.lower() in files:
+                return os.path.join(d, files[name.lower()])
+    return None
 
-PAPER_TYPES = {
-    "experimental": {
-        "label": "Experimental Chemistry",
-        "label_cn": "实验化学",
-        "method_sections": [
-            "Synthesis / Preparation",
-            "Characterization Techniques",
-            "Performance Testing",
-            "Control Experiments",
-        ],
-    },
-    "computational": {
-        "label": "Theoretical / Computational Chemistry",
-        "label_cn": "理论计算化学",
-        "method_sections": [
-            "Potential Energy Description",
-            "Dynamics & Sampling",
-            "Analysis Tools & Parameters",
-        ],
-    },
-    "hybrid": {
-        "label": "Experimental + Theoretical Hybrid",
-        "label_cn": "实验+理论混合",
-        "method_sections": [
-            "Experimental Methods",
-            "Computational Methods",
-            "Cross-Validation Strategy",
-        ],
-    },
-}
 
 # ============================================================
 # Report Builder
@@ -64,27 +48,16 @@ class ReportBuilder:
         self.sections = []
         self.figures = []
         self.qa_items = []
-        self._buf = []
+        self._output_format = 'md'  # 'md' | 'html' | 'pdf'
 
     def set_meta(self, title, authors, journal, doi="", paper_type="computational",
                  difficulty=3, prerequisites=None, peer_review_status="Journal Article"):
         self.paper = {
-            "title": title,
-            "title_en": getattr(self, '_title_en', ''),
-            "authors": authors,
-            "journal": journal,
-            "doi": doi,
-            "paper_type": paper_type,
-            "difficulty": difficulty,
+            "title": title, "authors": authors, "journal": journal,
+            "doi": doi, "paper_type": paper_type, "difficulty": difficulty,
             "prerequisites": prerequisites or [],
             "peer_review_status": peer_review_status,
         }
-
-    def _stars(self, n):
-        return "⭐" * n
-
-    def _h(self, level, text):
-        return f"\n{'#' * level} {text}\n"
 
     def add_section(self, heading_level, title, content):
         self.sections.append({"level": heading_level, "title": title, "content": content})
@@ -98,6 +71,10 @@ class ReportBuilder:
     def add_qa(self, question, answer, category="principle"):
         self.qa_items.append({"question": question, "answer": answer, "category": category})
 
+    @staticmethod
+    def _stars(n):
+        return "⭐" * n
+
     # ---- Build ----
 
     def build(self):
@@ -106,11 +83,11 @@ class ReportBuilder:
 
         # 0. Meta
         b.append(f"# {p.get('title', 'Untitled')}\n")
-        b.append("> **Authors**: " + p.get('authors', 'N/A'))
+        b.append(f"> **Authors**: {p.get('authors', 'N/A')}")
         b.append(f"> **Published**: {p.get('journal', 'N/A')}")
         if p.get('doi'):
             b.append(f"> **DOI**: [{p['doi']}](https://doi.org/{p['doi']})")
-        b.append(f"> **Peer Review Status**: {p.get('peer_review_status', 'Journal Article')}")
+        b.append(f"> **Peer Review**: {p.get('peer_review_status', 'Journal Article')}")
         b.append(f"> **Difficulty**: {self._stars(p.get('difficulty', 3))}")
         prereqs = p.get('prerequisites', [])
         if prereqs:
@@ -118,103 +95,182 @@ class ReportBuilder:
         b.append("")
 
         # 1. Overview
-        b.append(self._h(2, "一、总览"))
-        b.append(self._h(3, "核心创新点"))
-        b.append(p.get('innovation', '*（从论文提取）*'))
-        b.append("")
-        b.append(self._h(3, "摘要"))
-        b.append(p.get('abstract', '*（从论文提取）*'))
+        b.append("## 一、总览\n")
+        b.append("### 核心创新点")
+        b.append(p.get('innovation', '*(from paper)*'))
+        b.append("\n### 摘要")
+        b.append(p.get('abstract', '*(from paper)*'))
         b.append("")
 
-        # 2. Paper Summary
-        b.append(self._h(2, "二、论文概述"))
-        b.append(f"- **解决什么问题**：{p.get('problem', '')}")
-        b.append(f"- **核心方案**：{p.get('approach', '')}")
-        b.append(f"- **论文类型**：{PAPER_TYPES.get(p.get('paper_type',''), PAPER_TYPES['computational']).get('label_cn','')}")
-        contributions = p.get('contributions', [])
-        for c in contributions:
+        # 2. Summary
+        b.append("## 二、论文概述\n")
+        b.append(f"- **解决的问题**: {p.get('problem', '')}")
+        b.append(f"- **核心方案**: {p.get('approach', '')}")
+        for c in p.get('contributions', []):
             b.append(f"  - {c}")
         b.append("")
 
         # 3. Background
-        b.append(self._h(2, "三、背景与动机"))
+        b.append("## 三、背景与动机\n")
         b.append(p.get('background', ''))
         b.append("")
 
-        # 4. Core Methods
-        b.append(self._h(2, "四、核心方法"))
+        # 4. Methods
+        b.append("## 四、核心方法\n")
         for s in self.sections:
-            if s["level"] <= 3:
-                b.append(self._h(s["level"], s["title"]))
-            else:
-                b.append(f"{'#' * s['level']} {s['title']}\n")
+            b.append(f"{'#' * s['level']} {s['title']}\n")
             b.append(s["content"])
             b.append("")
 
         # 5. Results
-        b.append(self._h(2, "五、结果与讨论"))
-        b.append(self._h(3, "结果逻辑链"))
+        b.append("## 五、结果与讨论\n")
+        b.append("### 结果逻辑链")
         b.append(p.get('result_chain', ''))
-        b.append("")
-        b.append(self._h(3, "关键结果详情"))
-        results = p.get('key_results', [])
-        for r in results:
+        b.append("\n### 关键结果详情\n")
+        for r in p.get('key_results', []):
             b.append(f"**{r.get('title', '')}**")
             for pt in r.get('points', []):
                 b.append(f"- {pt}")
             if r.get('figure'):
-                b.append(f"  📊 *参见 Figure {r['figure']}*")
+                b.append(f"  *参见 Figure {r['figure']}*")
             b.append("")
 
-        # Figures gallery
-        if self.figures:
-            for fig in self.figures:
-                b.append(f"![{fig['description']}]({fig['path']})")
-                b.append(f"**{fig['id']}**：{fig['description']}")
-                for kp in fig['key_points']:
-                    b.append(f"- {kp}")
-                if fig.get('section_ref'):
-                    b.append(f"*对应正文 {fig['section_ref']}*")
-                b.append("")
+        # Figures
+        for fig in self.figures:
+            b.append(f"![{fig['description']}]({fig['path']})")
+            b.append(f"**{fig['id']}**: {fig['description']}")
+            for kp in fig['key_points']:
+                b.append(f"- {kp}")
+            if fig.get('section_ref'):
+                b.append(f"*{fig['section_ref']}*")
+            b.append("")
 
         # 6. Summary
-        b.append(self._h(2, "六、总结与思考"))
-        b.append(self._h(3, "核心贡献"))
+        b.append("## 六、总结与思考\n")
+        b.append("### 核心贡献")
         for c in p.get('contributions', []):
             b.append(f"- {c}")
-        b.append("")
-        b.append(self._h(3, "局限性"))
-        for l in p.get('limitations', ['（从论文或分析中提取）']):
+        b.append("\n### 局限性")
+        for l in p.get('limitations', ['*(from paper)*']):
             b.append(f"- {l}")
-        b.append("")
-        b.append(self._h(3, "适用场景"))
-        for s in p.get('applicable_scenarios', ['（分析适用和不适用的情况）']):
+        b.append("\n### 适用场景")
+        for s in p.get('applicable_scenarios', ['*(分析适用/不适用情况)*']):
             b.append(f"- {s}")
         b.append("")
 
         # 7. Q&A
-        b.append(self._h(2, "Q&A 深度思考"))
-        qa_categories = {
-            "principle": "原理理解",
-            "detail": "细节辨析",
-            "boundary": "边界条件",
-            "extension": "延伸思考",
-        }
+        b.append("## Q&A 深度思考\n")
+        qa_cats = {"principle": "原理理解", "detail": "细节辨析",
+                    "boundary": "边界条件", "extension": "延伸思考"}
         for i, qa in enumerate(self.qa_items, 1):
-            cat_label = qa_categories.get(qa['category'], '')
-            b.append(f"**Q{i}** [{cat_label}] {qa['question']}")
+            cat = qa_cats.get(qa['category'], '')
+            b.append(f"**Q{i}** [{cat}] {qa['question']}")
             b.append(f"**A{i}** {qa['answer']}")
             b.append("")
 
         return '\n'.join(b)
 
+    # ---- Save Methods ----
+
     def save(self, output_path):
+        """保存为 Markdown 文件"""
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
         content = self.build()
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(content)
-        _safe_print(f"[Report] Saved: {output_path} ({len(content)} chars, {content.count(chr(10))+1} lines)")
+        lines = content.count('\n') + 1
+        _safe_print(f"[Report] Markdown saved: {output_path} ({len(content)} chars, {lines} lines)")
         return output_path
+
+    def save_html(self, output_path):
+        """保存为单文件 HTML（可在浏览器中 Ctrl+P 打印为 PDF）"""
+        content = self.build()
+        try:
+            import markdown
+        except ImportError:
+            _safe_print("[Report] 'markdown' not installed. Saving as plain text HTML. pip install markdown")
+            html_body = content.replace('\n', '<br>')
+        else:
+            html_body = markdown.markdown(content, extensions=['tables', 'fenced_code', 'nl2br'])
+
+        title = self.paper.get('title', 'Report')[:100]
+        html = f"""<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><title>{title}</title>
+<style>
+@page {{ margin: 2cm; size: A4; }}
+@media print {{ body {{ font-size: 10pt; }} }}
+body {{ font-family: 'Helvetica Neue', Arial, 'Microsoft YaHei', 'SimHei', sans-serif;
+       font-size: 11pt; line-height: 1.7; color: #222; max-width: 820px; margin: auto; padding: 40px 30px; }}
+h1 {{ font-size: 20pt; border-bottom: 3px solid #003366; padding-bottom: 8px; color: #003366; }}
+h2 {{ font-size: 15pt; color: #003366; margin-top: 28px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }}
+h3 {{ font-size: 13pt; color: #1A5276; margin-top: 20px; }}
+blockquote {{ background: #f5f7fa; border-left: 4px solid #003366; padding: 8px 16px; color: #555; margin: 12px 0; }}
+code {{ background: #f0f0f0; padding: 1px 4px; font-size: 10pt; }}
+pre {{ background: #f5f5f5; padding: 12px; border-radius: 4px; font-size: 9.5pt; overflow-x: auto; }}
+img {{ max-width: 100%; margin: 12px 0; }}
+table {{ border-collapse: collapse; width: 100%; margin: 12px 0; }}
+th, td {{ border: 1px solid #ddd; padding: 6px 10px; text-align: left; }}
+th {{ background: #003366; color: #fff; }}
+tr:nth-child(even) {{ background: #f9f9f9; }}
+ul, ol {{ margin: 6px 0; padding-left: 24px; }}
+li {{ margin: 3px 0; }}
+strong {{ color: #003366; }}
+hr {{ border: none; border-top: 1px solid #eee; margin: 20px 0; }}
+em {{ color: #666; }}
+</style></head><body>
+{html_body}
+</body></html>"""
+
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(html)
+        _safe_print(f"[Report] HTML saved: {output_path} ({len(html)/1024:.0f} KB)")
+        _safe_print("[Report]  Tip: Open in browser -> Ctrl+P -> Save as PDF")
+        return output_path
+
+    def save_pdf(self, output_path):
+        """保存为 PDF 文件（通过 text-based fpdf2 或 HTML fallback）"""
+        content = self.build()
+
+        # Try fpdf2 text-based approach with CJK font
+        cjk = _find_cjk_font()
+        if cjk:
+            try:
+                from fpdf import FPDF
+                pdf = FPDF('P', 'mm', 'A4')
+                pdf.add_page()
+                pdf.set_auto_page_break(True, 20)
+                pdf.add_font('CJK', '', cjk, uni=True)
+                pf = lambda s: pdf.set_font('CJK', '', s)
+
+                for line in content.split('\n'):
+                    if line.startswith('# '):
+                        pf(15); pdf.multi_cell(0, 8, line[2:]); pdf.ln(3)
+                    elif line.startswith('## '):
+                        pf(12); pdf.multi_cell(0, 7, line[3:]); pdf.ln(2)
+                    elif line.startswith('### '):
+                        pf(10.5); pdf.multi_cell(0, 6, line[4:]); pdf.ln(1)
+                    elif line.startswith('> '):
+                        pf(8.5); pdf.set_text_color(100, 100, 100)
+                        pdf.multi_cell(0, 5, line[2:]); pdf.set_text_color(34, 34, 34)
+                    elif line.strip():
+                        pf(9.5); pdf.multi_cell(0, 5.5, line)
+                    else:
+                        pdf.ln(2.5)
+
+                os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+                pdf.output(output_path)
+                size_kb = os.path.getsize(output_path) / 1024
+                _safe_print(f"[Report] PDF saved: {output_path} ({size_kb:.0f} KB)")
+                return output_path
+            except Exception as e:
+                _safe_print(f"[Report] fpdf2 failed: {e}")
+
+        # Fallback to HTML
+        _safe_print("[Report] PDF not available (no CJK font / fpdf2). Generating HTML instead.")
+        html_path = output_path.replace('.pdf', '.html')
+        self.save_html(html_path)
+        return html_path
 
 
 # ============================================================
@@ -222,18 +278,7 @@ class ReportBuilder:
 # ============================================================
 
 def quick_build(paper_data, output_path):
-    """
-    Build a report from a dictionary of paper data.
-
-    paper_data keys:
-        title, authors, journal, doi, paper_type, difficulty, prerequisites,
-        innovation, abstract, problem, approach, contributions, background,
-        sections: [{level, title, content}],
-        result_chain, key_results: [{title, points, figure}],
-        figures: [{id, path, description, key_points, section_ref}],
-        limitations, applicable_scenarios,
-        qa: [{question, answer, category}]
-    """
+    """从字典快速构建报告"""
     r = ReportBuilder()
     r.set_meta(
         title=paper_data.get('title', ''),
@@ -245,120 +290,66 @@ def quick_build(paper_data, output_path):
         prerequisites=paper_data.get('prerequisites', []),
         peer_review_status=paper_data.get('peer_review_status', 'Journal Article'),
     )
-    r.paper['innovation'] = paper_data.get('innovation', '')
-    r.paper['abstract'] = paper_data.get('abstract', '')
-    r.paper['problem'] = paper_data.get('problem', '')
-    r.paper['approach'] = paper_data.get('approach', '')
+    for k in ['innovation', 'abstract', 'problem', 'approach', 'background',
+               'result_chain']:
+        if k in paper_data:
+            r.paper[k] = paper_data[k]
     r.paper['contributions'] = paper_data.get('contributions', [])
-    r.paper['background'] = paper_data.get('background', '')
-    r.paper['result_chain'] = paper_data.get('result_chain', '')
     r.paper['key_results'] = paper_data.get('key_results', [])
     r.paper['limitations'] = paper_data.get('limitations', [])
     r.paper['applicable_scenarios'] = paper_data.get('applicable_scenarios', [])
 
     for s in paper_data.get('sections', []):
         r.add_section(s.get('level', 3), s.get('title', ''), s.get('content', ''))
-
     for f in paper_data.get('figures', []):
         r.add_figure(f.get('id', ''), f.get('path', ''), f.get('description', ''),
                       f.get('key_points', []), f.get('section_ref', ''))
-
     for q in paper_data.get('qa', []):
         r.add_qa(q.get('question', ''), q.get('answer', ''), q.get('category', 'principle'))
 
     return r.save(output_path)
 
 
+    def save_auto(self, output_path, fmt=None):
+        """自动选择格式保存。
+
+        Args:
+            output_path: 输出路径 (不含扩展名或含扩展名)
+            fmt: 'md', 'html', 'pdf', 或 None (从扩展名自动检测)
+        """
+        if fmt is None:
+            ext = os.path.splitext(output_path)[1].lower()
+            fmt_map = {'.md': 'md', '.html': 'html', '.htm': 'html', '.pdf': 'pdf'}
+            fmt = fmt_map.get(ext, 'md')
+            if ext:
+                output_path = output_path[:-len(ext)]
+
+        if fmt == 'md':
+            return self.save(output_path + ('.md' if not output_path.endswith('.md') else ''))
+        elif fmt == 'html':
+            return self.save_html(output_path + ('.html' if not output_path.endswith('.html') else ''))
+        elif fmt == 'pdf':
+            return self.save_pdf(output_path + ('.pdf' if not output_path.endswith('.pdf') else ''))
+        else:
+            _safe_print(f"[Report] Unknown format: {fmt}. Using markdown.")
+            return self.save(output_path + '.md')
+
+
 if __name__ == "__main__":
-    # Demo
     r = ReportBuilder()
-    r.set_meta(
-        title="Acids at the Edge: Why Nitric and Formic Acid Dissociations at Air–Water Interfaces Depend on Depth and on Interface Specific Area",
-        authors="Miguel de la Puente, Rolf David, Axel Gomez, Damien Laage*",
-        journal="J. Am. Chem. Soc., 2022, 144, 10524–10529",
-        doi="10.1021/jacs.2c03099",
-        paper_type="computational",
-        difficulty=3,
-        prerequisites=["Basic MD concepts", "Free energy calculation", "Acid-base chemistry"],
-    )
-    r.paper['innovation'] = (
-        "通过 DeePMD-kit 训练的 NNP 反应力场，首次以 DFT 精度 + ns 级采样揭示了空气-水界面处 "
-        "HNO₃ 和 HCOOH 的解离自由能深度分布，建立了局域溶剂化模型将界面酸碱性定量关联到各物种的溶剂化自由能，"
-        "并从分子层面解释了 SFG/XPS（酸性减弱）与 OESI-MS（酸性增强）的实验矛盾。"
-    )
-    r.paper['abstract'] = "（略，见论文原文）"
-    r.paper['problem'] = "空气-水界面的酸碱性如何随深度变化？为什么不同实验方法给出矛盾结论？"
-    r.paper['approach'] = "NNP 反应力场 + metadynamics 增强采样的自由能计算 + 局域溶剂化模型"
-    r.paper['contributions'] = [
-        "首次以 DFT 精度计算界面不同深度的酸解离自由能（≃ns 级采样，精度 0.1 kcal/mol）",
-        "建立局域溶剂化模型，将界面酸碱性分解为各物种溶剂化自由能贡献",
-        "从分子层面解释了 SFG/XPS（探测顶层→酸性弱）与 OESI-MS（探测更深→酸性强）的矛盾",
-    ]
-    r.paper['background'] = (
-        "空气-水界面广泛存在于大气气溶胶、海洋酸化等关键环境过程。"
-        "SFG 和 XPS 实验表明界面酸性弱于体相，而 OESI-MS 实验则显示部分羧酸在界面酸性增强。"
-        "DFT-based MD 模拟精度高但计算代价极大，采样严重不足。"
-    )
-    r.add_section(3, "整体计算策略",
-        "NNP 训练（BLYP-D3 参考数据）→ MD 模拟（DeePMD-kit + LAMMPS）→ metadynamics 自由能计算 → 局域溶剂化模型分析。")
-    r.add_section(3, "机器学习势函数",
-        "- **架构**：DeepMD-kit (Deep Potential)\n"
-        "- **参考级别**：BLYP-D3 DFT（1 酸 + 128 H₂O）\n"
-        "- **训练策略**：迭代富集 (DP-GEN)，覆盖体相和界面的反应物/产物构型\n"
-        "- **加速比**：相对 DFT-based MD > 1000×")
-    r.add_section(3, "动力学与采样",
-        "- **MD 类型**：经典 NNP MD\n"
-        "- **增强采样**：metadynamics\n"
-        "- **集体变量 (CV)**：酸氧原子周围的氢配位数\n"
-        "- **约束**：酸在 slab 中不同深度处约束\n"
-        "- **模拟时长**：每条自由能曲线 ≃ns（达到 0.1 kcal/mol 精度）")
-    r.paper['result_chain'] = (
-        "体相 pKa 验证 → 各深度解离自由能曲线 → 各物种独立水化自由能 → 局域溶剂化模型 → "
-        "解释实验矛盾 → 气溶胶尺寸效应预测"
-    )
-    r.paper['key_results'] = [
-        {"title": "体相 pKa 验证", "points": [
-            "HNO₃ pKa_calc=−2.0±0.1 vs pKa_exp=−1.4", "HCOOH pKa_calc=3.5±0.1 vs pKa_exp=3.7"]},
-        {"title": "界面酸碱性在 2 个分子层内突变", "points": [
-            "界面处（顶层）：酸性弱于体相——共轭碱去溶剂化效应显著",
-            "界面下方：酸性强于体相——H₃O⁺ 可扩散至界面并被优先溶剂化（~1.0±0.2 kcal/mol）",
-        ], "figure": "1"},
-        {"title": "局域溶剂化模型", "points": [
-            "ΔrG(d) = ΔrG_bulk + ΔG_hyd(B,d) + ⟨ΔG_hyd(H)⟩L − ΔG_hyd(A,d) − ⟨ΔG_hyd(W)⟩L",
-            "模型预测与直接计算在所有深度高度一致",
-        ], "figure": "3"},
-    ]
-    r.paper['limitations'] = [
-        "NNP 精度受 BLYP-D3 参考级别限制",
-        "体系仅含 128 H₂O，有限尺寸效应未完全排除",
-        "仅研究了两种酸（HNO₃ 和 HCOOH），推广到其他酸需进一步验证",
-    ]
-    r.paper['applicable_scenarios'] = [
-        "适合：界面酸碱性、气溶胶化学、大气化学中涉及酸解离的体系",
-        "不适合：非水溶剂界面、含复杂离子效应的多组分体系（需扩展模型）",
-    ]
-    r.add_qa(
-        "为什么选择 H 配位数作为 metadynamics 的 CV？",
-        "酸解离过程本质上是 H⁺ 从酸转移到溶剂水的过程。酸氧原子周围的 H 配位数（0→1→2）直接反映了"
-        "质子从酸到水的转移程度，是描述解离反应最直观的几何变量。同时该 CV 计算简单，不依赖"
-        "先验的路径知识，适合无偏探索。",
-        "principle"
-    )
-    r.add_qa(
-        "NNP vs DFT-based AIMD 的成本-精度取舍如何？",
-        "BLYP-D3 NNP 的精度受限于参考 DFT（无 exact exchange，可能低估某些电子相关效应），"
-        "但通过 ≥1000× 加速，实现了 ns 级的自由能采样，使 pKa 精度达到 ±0.1。"
-        "而 DFT-based AIMD 虽然可用 hybrid functional（如 PBE0），但 ps 级的采样不足以收敛"
-        "自由能曲线。对于酸解离这类需要充分采样的事件，NNP 的统计精度优势远大于参考级别的局限。",
-        "detail"
-    )
-    r.add_qa(
-        "该模型的假设条件是什么？什么情况下会失效？",
-        "（1）假设酸/碱/水合物种的溶剂化自由能可加和分离——在多离子强耦合体系可能失效。"
-        "（2）H₃O⁺ 的贡献以 slab 厚度平均——对于极薄 slab（< 1 nm）可能不够准确。"
-        "（3）模型针对中性酸设计——正离子酸（如三甲基铵）需扩展公式。"
-        "（4）未考虑界面 pH 梯度与离子强度效应。",
-        "boundary"
-    )
+    r.set_meta(title="Demo Report", authors="Test", journal="Test J.", paper_type="computational", difficulty=2)
+    r.paper['innovation'] = "Demo innovation"
+    r.paper['abstract'] = "Demo abstract"
+    r.paper['problem'] = "Demo problem"
+    r.paper['approach'] = "Demo approach"
+    r.paper['background'] = "## Background\nDemo background"
+    r.paper['contributions'] = ["C1", "C2"]
+    r.add_section(3, "Methods", "Demo methods content")
+    r.paper['result_chain'] = "A -> B -> C"
+    r.paper['key_results'] = [{"title": "R1", "points": ["p1", "p2"]}]
+    r.paper['limitations'] = ["L1"]
+    r.paper['applicable_scenarios'] = ["S1"]
+    r.add_qa("Q1?", "A1.", "principle")
     r.save("output/demo_report.md")
-    _safe_print("Demo report generated: output/demo_report.md")
+    r.save_html("output/demo_report.html")
+    r.save_pdf("output/demo_report.pdf")
