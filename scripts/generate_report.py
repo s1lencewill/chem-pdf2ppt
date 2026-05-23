@@ -2,7 +2,7 @@
 """
 化学学术论文 Markdown 报告生成器
 Chemistry Academic Paper Report Generator — produces publication-ready reading notes
-支持输出格式: Markdown, HTML (可打印为PDF)
+输出格式: Markdown (.md), HTML (.html, 可在浏览器中打印为 PDF)
 """
 import os
 
@@ -12,28 +12,6 @@ def _safe_print(msg):
         print(msg)
     except UnicodeEncodeError:
         print(msg.encode('ascii', errors='replace').decode('ascii'))
-
-
-def _find_cjk_font():
-    """查找系统中可用的中文字体 (.ttf/.otf)"""
-    search_paths = [
-        'C:/Windows/Fonts', '/usr/share/fonts',
-        '/System/Library/Fonts', '/Library/Fonts',
-        os.path.expanduser('~/.fonts'),
-    ]
-    candidates = [
-        'simhei.ttf', 'simkai.ttf', 'simfang.ttf',
-        'STXIHEI.TTF', 'STSONG.TTF', 'STKAITI.TTF',
-        'NotoSansSC-Regular.otf', 'SourceHanSansSC-Regular.otf',
-    ]
-    for d in search_paths:
-        if not os.path.isdir(d):
-            continue
-        files = {f.lower(): f for f in os.listdir(d)}
-        for name in candidates:
-            if name.lower() in files:
-                return os.path.join(d, files[name.lower()])
-    return None
 
 
 # ============================================================
@@ -48,7 +26,6 @@ class ReportBuilder:
         self.sections = []
         self.figures = []
         self.qa_items = []
-        self._output_format = 'md'  # 'md' | 'html' | 'pdf'
 
     def set_meta(self, title, authors, journal, doi="", paper_type="computational",
                  difficulty=3, prerequisites=None, peer_review_status="Journal Article"):
@@ -188,7 +165,7 @@ class ReportBuilder:
         try:
             import markdown
         except ImportError:
-            _safe_print("[Report] 'markdown' not installed. Saving as plain text HTML. pip install markdown")
+            _safe_print("[Report] 'markdown' not installed. Saving as plain text HTML.")
             html_body = content.replace('\n', '<br>')
         else:
             html_body = markdown.markdown(content, extensions=['tables', 'fenced_code', 'nl2br'])
@@ -228,49 +205,23 @@ em {{ color: #666; }}
         _safe_print("[Report]  Tip: Open in browser -> Ctrl+P -> Save as PDF")
         return output_path
 
-    def save_pdf(self, output_path):
-        """保存为 PDF 文件（通过 text-based fpdf2 或 HTML fallback）"""
-        content = self.build()
+    def save_auto(self, output_path, fmt=None):
+        """自动选择格式保存。
 
-        # Try fpdf2 text-based approach with CJK font
-        cjk = _find_cjk_font()
-        if cjk:
-            try:
-                from fpdf import FPDF
-                pdf = FPDF('P', 'mm', 'A4')
-                pdf.add_page()
-                pdf.set_auto_page_break(True, 20)
-                pdf.add_font('CJK', '', cjk, uni=True)
-                pf = lambda s: pdf.set_font('CJK', '', s)
+        Args:
+            output_path: 输出路径 (不含扩展名或含扩展名)
+            fmt: 'md' | 'html' | None (从扩展名自动检测)
+        """
+        if fmt is None:
+            ext = os.path.splitext(output_path)[1].lower()
+            fmt = 'html' if ext in ('.html', '.htm') else 'md'
+            if ext:
+                output_path = output_path[:-len(ext)]
 
-                for line in content.split('\n'):
-                    if line.startswith('# '):
-                        pf(15); pdf.multi_cell(0, 8, line[2:]); pdf.ln(3)
-                    elif line.startswith('## '):
-                        pf(12); pdf.multi_cell(0, 7, line[3:]); pdf.ln(2)
-                    elif line.startswith('### '):
-                        pf(10.5); pdf.multi_cell(0, 6, line[4:]); pdf.ln(1)
-                    elif line.startswith('> '):
-                        pf(8.5); pdf.set_text_color(100, 100, 100)
-                        pdf.multi_cell(0, 5, line[2:]); pdf.set_text_color(34, 34, 34)
-                    elif line.strip():
-                        pf(9.5); pdf.multi_cell(0, 5.5, line)
-                    else:
-                        pdf.ln(2.5)
-
-                os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-                pdf.output(output_path)
-                size_kb = os.path.getsize(output_path) / 1024
-                _safe_print(f"[Report] PDF saved: {output_path} ({size_kb:.0f} KB)")
-                return output_path
-            except Exception as e:
-                _safe_print(f"[Report] fpdf2 failed: {e}")
-
-        # Fallback to HTML
-        _safe_print("[Report] PDF not available (no CJK font / fpdf2). Generating HTML instead.")
-        html_path = output_path.replace('.pdf', '.html')
-        self.save_html(html_path)
-        return html_path
+        if fmt == 'html':
+            return self.save_html(output_path + ('.html' if not output_path.endswith('.html') else ''))
+        else:
+            return self.save(output_path + ('.md' if not output_path.endswith('.md') else ''))
 
 
 # ============================================================
@@ -290,8 +241,7 @@ def quick_build(paper_data, output_path):
         prerequisites=paper_data.get('prerequisites', []),
         peer_review_status=paper_data.get('peer_review_status', 'Journal Article'),
     )
-    for k in ['innovation', 'abstract', 'problem', 'approach', 'background',
-               'result_chain']:
+    for k in ['innovation', 'abstract', 'problem', 'approach', 'background', 'result_chain']:
         if k in paper_data:
             r.paper[k] = paper_data[k]
     r.paper['contributions'] = paper_data.get('contributions', [])
@@ -310,31 +260,6 @@ def quick_build(paper_data, output_path):
     return r.save(output_path)
 
 
-    def save_auto(self, output_path, fmt=None):
-        """自动选择格式保存。
-
-        Args:
-            output_path: 输出路径 (不含扩展名或含扩展名)
-            fmt: 'md', 'html', 'pdf', 或 None (从扩展名自动检测)
-        """
-        if fmt is None:
-            ext = os.path.splitext(output_path)[1].lower()
-            fmt_map = {'.md': 'md', '.html': 'html', '.htm': 'html', '.pdf': 'pdf'}
-            fmt = fmt_map.get(ext, 'md')
-            if ext:
-                output_path = output_path[:-len(ext)]
-
-        if fmt == 'md':
-            return self.save(output_path + ('.md' if not output_path.endswith('.md') else ''))
-        elif fmt == 'html':
-            return self.save_html(output_path + ('.html' if not output_path.endswith('.html') else ''))
-        elif fmt == 'pdf':
-            return self.save_pdf(output_path + ('.pdf' if not output_path.endswith('.pdf') else ''))
-        else:
-            _safe_print(f"[Report] Unknown format: {fmt}. Using markdown.")
-            return self.save(output_path + '.md')
-
-
 if __name__ == "__main__":
     r = ReportBuilder()
     r.set_meta(title="Demo Report", authors="Test", journal="Test J.", paper_type="computational", difficulty=2)
@@ -342,7 +267,7 @@ if __name__ == "__main__":
     r.paper['abstract'] = "Demo abstract"
     r.paper['problem'] = "Demo problem"
     r.paper['approach'] = "Demo approach"
-    r.paper['background'] = "## Background\nDemo background"
+    r.paper['background'] = "Demo background"
     r.paper['contributions'] = ["C1", "C2"]
     r.add_section(3, "Methods", "Demo methods content")
     r.paper['result_chain'] = "A -> B -> C"
@@ -352,4 +277,3 @@ if __name__ == "__main__":
     r.add_qa("Q1?", "A1.", "principle")
     r.save("output/demo_report.md")
     r.save_html("output/demo_report.html")
-    r.save_pdf("output/demo_report.pdf")
