@@ -10,7 +10,7 @@
 ## 核心特性
 
 - **论文化学类型自动识别**：实验化学 / 理论计算化学 / 实验+理论混合，自动匹配叙事结构
-- **双格式输出**：PPTX（python-pptx）和单文件 HTML（横向翻页，图片 base64 嵌入）
+- **三格式输出**：PPTX + 单文件 HTML（横向翻页） + Markdown 学术阅读报告
 - **化学领域深度适配**：催化、材料、有机合成、计算化学、电化学、能源、环境、辐射化学等
 - **智能内容生成**：从论文提取真实信息，不生成"请手动添加XX"占位符
 - **多策略图表提取**：矢量图聚类 + 嵌入式图片 + 整页渲染回退，兼容 PyMuPDF 1.19–1.23+
@@ -68,7 +68,7 @@ python scripts/analyze_paper.py paper.pdf --json analysis.json
 # Step 2: 提取图表（多策略 + 自动回退）
 python scripts/extract_charts.py paper.pdf output/figures 300 --report
 
-# Step 3: 构建 PPTX 或 HTML
+# Step 3: 构建 PPTX / HTML / Markdown 报告
 python build_my_ppt.py
 ```
 
@@ -147,6 +147,30 @@ html.save('output/presentation.html')  # 单文件，可直接浏览器打开
 - 横向翻页：键盘 ← → Home End、滚轮、触摸滑动、底部圆点导航
 - 页码追踪 + 键盘提示
 - 响应式设计，适配投影仪和移动端
+
+### Markdown 学术报告
+
+```python
+from generate_report import ReportBuilder
+
+r = ReportBuilder()
+r.set_meta(title="论文标题", authors="...", journal="...",
+           paper_type="computational", difficulty=3,
+           prerequisites=["基础概念1", "基础概念2"])
+
+r.paper['innovation'] = "核心创新点"
+r.paper['problem'] = "解决什么问题"
+r.paper['approach'] = "核心方案"
+r.paper['background'] = "## 已有认知\n..."
+r.add_section(3, "整体计算策略", "计算流程...")
+r.add_section(3, "势能面描述", "- 方法层级: ...")
+r.add_figure("Figure 1", "figures/fig1.png", "描述", ["要点"])
+r.add_qa("为什么选这个方法？", "答案...", "principle")
+r.paper['limitations'] = ["局限1"]
+r.save("output/report.md")
+```
+
+**报告结构**：元信息 → 总览 → 概述 → 背景 → 方法 → 结果 → 总结 → Q&A
 
 ---
 
@@ -240,6 +264,7 @@ PDF2PPT/
 ├── scripts/
 │   ├── create_ppt.py                # PPTX 构建器 (ChemistryPPT)
 │   ├── generate_html.py             # HTML 构建器 (HtmlPPT)
+│   ├── generate_report.py           # Markdown 报告生成器 (ReportBuilder)
 │   ├── extract_charts.py            # 多策略图表提取
 │   ├── analyze_paper.py             # 论文分析 + 类型分类
 │   └── convert_to_images.py         # PDF 页面 → 图片
