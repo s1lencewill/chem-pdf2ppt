@@ -1,0 +1,92 @@
+{
+  "_description": "化学论文关键词库 — 可自定义扩展子领域和关键词。Chemistry paper keyword database.",
+
+  "subfields": {
+    "催化": {
+      "en": "catalysis",
+      "keywords": ["cataly", "TOF", "turnover", "selectivity", "conversion",
+                   "catalyst", "active site", "Sabatier", "d-band", "overpotential"]
+    },
+    "材料": {
+      "en": "materials",
+      "keywords": ["MOF", "COF", "perovskite", "zeolite", "framework",
+                   "polymer", "nanosheet", "nanoparticle", "quantum dot"]
+    },
+    "有机合成": {
+      "en": "organic synthesis",
+      "keywords": ["synthesis", "yield", "substrate scope", "coupling",
+                   "cross-coupling", "organocatal", "asymmetric", "functional group"]
+    },
+    "计算化学": {
+      "en": "computational chemistry",
+      "keywords": [
+        "DFT", "density functional", "VASP", "Gaussian", "CP2K",
+        "Quantum ESPRESSO", "molecular dynamics", "AIMD", "ab initio",
+        "MD simulation", "free energy", "transition state",
+        "k-point", "pseudopotential", "PAW", "basis set",
+        "B3LYP", "PBE", "RPBE", "SCAN", "HSE", "GGA", "PBE0",
+        "Hartree-Fock", "coupled cluster", "CCSD", "MP2",
+        "Monte Carlo", "metadynamics", "enhanced sampling",
+        "reaction coordinate", "diabatic", "adiabatic",
+        "reorganization energy", "Marcus theory"
+      ]
+    },
+    "电化学": {
+      "en": "electrochemistry",
+      "keywords": ["electrochem", "ORR", "OER", "HER", "CO2RR", "NRR",
+                   "Li-ion", "battery", "supercapacitor", "electrolyte",
+                   "faradaic efficiency", "Tafel", "RHE", "SHE"]
+    },
+    "光谱/表征": {
+      "en": "spectroscopy/characterization",
+      "keywords": ["XRD", "XPS", "TEM", "SEM", "STEM", "HAADF",
+                   "NMR", "IR", "Raman", "EXAFS", "XANES", "BET",
+                   "EPR", "UV-vis", "AFM", "FTIR", "spectroscopy"]
+    },
+    "环境/大气": {
+      "en": "environmental/atmospheric",
+      "keywords": ["atmospheric", "aerosol", "SOA", "PM2.5", "oxidation",
+                   "OH radical", "ozone", "photochem", "tropospheric"]
+    },
+    "能源": {
+      "en": "energy",
+      "keywords": ["solar cell", "perovskite solar", "water splitting",
+                   "hydrogen evolution", "photocatal", "fuel cell", "battery"]
+    },
+    "辐射化学": {
+      "en": "radiation chemistry",
+      "keywords": ["radiolysis", "pulse radiolysis", "hydrated electron",
+                   "solvated electron", "transient absorption"]
+    }
+  },
+
+  "characterization_terms": [
+    "XRD", "XPS", "TEM", "SEM", "STEM", "HAADF", "NMR", "IR",
+    "Raman", "EXAFS", "XANES", "BET", "EPR", "UV-vis", "AFM", "FTIR"
+  ],
+
+  "computational_strong_signals": [
+    "DFT", "density functional theory", "VASP", "Gaussian", "CP2K",
+    "Quantum ESPRESSO", "ab initio molecular dynamics", "AIMD",
+    "PBE0", "B3LYP", "PBE", "Hartree-Fock", "CCSD", "MP2",
+    "transition state", "reaction coordinate", "diabatic",
+    "pseudopotential", "basis set", "k-point", "cutoff",
+    "molecular dynamics simulation", "trajector"
+  ],
+
+  "method_patterns": [
+    ["CP2K|VASP|Gaussian\\s*\\d+|Q-Chem\\s*\\d+|GROMACS|LAMMPS|Quantum\\s+ESPRESSO", 2],
+    ["PBE0|B3LYP|PBE|RPBE|SCAN|HSE06|GGA|LDA|meta-GGA", 1],
+    ["impregnation|sol-gel|hydrothermal|solvothermal|co-precipitation|calcination|pyrolysis", 1],
+    ["XRD|XPS|TEM|SEM|STEM|HAADF-STEM|NMR|IR|Raman|EXAFS|XANES|BET|EPR", 1]
+  ],
+
+  "section_patterns": [
+    ["^\\s*(?:Abstract|摘要)\\s*$", "Abstract"],
+    ["^\\s*(?:Introduction|引言|绪论)\\s*$", "Introduction"],
+    ["^\\s*(?:Method|Experimental|Computational|计算方法?|实验方法?|Theory)\\s*", "Methods"],
+    ["^\\s*(?:Result|Discussion|结果|讨论)\\s*", "Results"],
+    ["^\\s*(?:Conclusion|结论|Summary|总结)\\s*$", "Conclusions"],
+    ["^\\s*(?:Supporting Information|SI|附录|补充|References?)\\s*", "SI/References"]
+  ]
+}

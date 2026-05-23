@@ -35,7 +35,18 @@ Any of the following are accepted:
 - Structured reading notes
 - User-pasted paper content
 
-Default output language is Chinese; preserve key chemical terminology, abbreviations, compound names, and method names in English.
+Default output language is Chinese; preserve key chemical terminology, abbreviations, compound names, and method names in English. For fully English output, pass `--lang en` when calling analysis scripts.
+
+## Script Import Convention
+
+All Python scripts are in `<SKILL_ROOT>/scripts/`. Use the following once before any script import:
+
+```python
+import sys, os
+_scripts_dir = os.path.join('<SKILL_ROOT>', 'scripts')
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
+```
 
 ## Workflow
 
@@ -47,31 +58,72 @@ pip install -r <SKILL_ROOT>/requirements.txt
 
 ### Step 1: Read and Understand the Paper
 
-Use PyMuPDF (fitz) to extract full text:
+**First, determine the input format and choose the appropriate path:**
 
-```python
-import fitz
-doc = fitz.open("paper.pdf")
-full_text = ""
-for page in doc:
-    full_text += page.get_text()
+| Input | Path |
+|-------|------|
+| PDF file (local / arXiv / chemRxiv) | → Step 1A: PyMuPDF structured analysis |
+| Abstract + figures + text snippets | → Skip Steps 1A–3, go directly to Step 4 |
+| User-pasted full-text | → Skip PDF extraction; use `is_chemistry_domain()` then go to Step 4 |
+| Structured reading notes | → Map directly to PPT structure in Steps 4–5 |
+
+#### Step 1A: PDF Input — Structured Analysis
+
+Use `scripts/analyze_paper.py` for full paper analysis:
+
+```bash
+python <SKILL_ROOT>/scripts/analyze_paper.py paper.pdf --json analysis.json
 ```
 
-Identify the following key information from the full text:
-- **Title, authors, journal, year, DOI**
-- **Paper chemistry type**: Experimental / Computational / Hybrid
-- **Core chemistry problem**: catalysis, synthesis, materials, energy, environment, pharmaceuticals, mechanism, etc.
-- **Research gap**: limitations of prior work
+The script automatically performs:
+- Full-text extraction
+- Title / section structure detection
+- **Domain detection**: returns an `is_chemistry` field. If `false`, the paper may not be in the chemistry domain — **inform the user**: "Few chemistry signals detected; results may be inaccurate. Continue anyway?" Wait for confirmation before proceeding
+- **Paper chemistry type classification**: Experimental / Computational / Hybrid (with confidence annotation)
+- **Subfield identification**: catalysis / materials / organic synthesis / computational chemistry / electrochemistry / spectroscopy / environmental / energy / radiation chemistry
+- Figure/table location detection (via caption text)
+- Method extraction (DFT functional, software packages, experimental techniques)
+
+The following information should be manually identified from the text:
+- **Core chemistry problem and research gap**
 - **Core claim/hypothesis**
-- **Key methods**:
-  - Experimental: synthesis routes, catalyst preparation, characterization techniques (XRD, TEM, SEM, XPS, BET, NMR, IR, Raman, EPR, XAS, etc.), performance testing conditions
-  - Computational: level of theory (DFT functional, basis set), software (VASP, Gaussian, CP2K, QE, etc.), model systems, free energy methods
-- **Key results**: performance data, characterization conclusions, energy data, selectivity/conversion/yield, TOF, stability
-- **Key figures**: Figure numbers and content summaries
+- **Key results**: performance data, characterization conclusions, energy data, TOF, stability
 - **Mechanism / structure-property relationships**
 - **Innovations and limitations**
 
 **Important**: Do not fabricate data, mechanisms, or figure details not present in the paper. Mark uncertain information as "[TBD]".
+
+#### Step 1B: Non-PDF Input — Domain Check
+
+For pasted text or reading notes, call `is_chemistry_domain()` for a quick check:
+
+```python
+from analyze_paper import is_chemistry_domain
+if not is_chemistry_domain(user_text):
+    # Inform user, wait for confirmation, then continue
+    print("Few chemistry domain signals detected...")
+```
+
+#### Customizing Keywords
+
+To adapt for new subfields or adjust keyword weights, edit `references/chemistry_keywords.json`:
+
+```json
+{
+  "subfields": {
+    "photochemistry": {
+      "en": "photochemistry",
+      "keywords": ["photoredox", "photoinduced", "visible light", ...]
+    }
+  },
+  "computational_strong_signals": ["DFT", "VASP", ...],
+  "characterization_terms": ["XRD", "XPS", ...],
+  "method_patterns": [["regex", weight], ...],
+  "section_patterns": [["regex", "label"], ...]
+}
+```
+
+Modifications take effect immediately — no code changes needed.
 
 ### Step 2: Classify Paper Type and Select Narrative Arc
 
@@ -162,27 +214,73 @@ Slide 11: Unified mechanism model
 Slide 12: Summary & outlook
 ```
 
-### Step 3: Extract Figures
+### Step 3: Obtain Figures (Multi-Pathway)
 
-Use `scripts/extract_charts.py` for multi-strategy figure extraction:
+Figures are the core of the PPT. Try paths in priority order; later paths serve as fallback when earlier ones fail.
+
+#### Path A: Local PDF Extraction (preferred, most automated)
 
 ```bash
 python <SKILL_ROOT>/scripts/extract_charts.py paper.pdf output/figures 300 --report
 ```
 
-This automatically:
-1. Extracts vector graphics using `cluster_drawings()` (PyMuPDF ≥1.23) or `get_drawings()` with manual clustering (PyMuPDF 1.19+)
-2. Extracts embedded bitmap images
-3. Falls back to full-page rendering if insufficient figures found
-4. Tries multiple tolerance parameters when default clustering fails
-5. Generates `extraction_report.json` summarizing all extraction results
+**5-layer extraction strategy** (newly enhanced):
 
-Then map extracted figures to paper Figure numbers by checking page numbers and order.
+| Strategy | Method | Confidence |
+|----------|--------|------------|
+| 0. Caption-guided | Search "Figure X" captions → locate region above caption → precise crop | **High** |
+| 1. Vector clustering | `cluster_drawings()` default tolerance (3,3) | Medium |
+| 2. Multi-tolerance retry | Relax to (6,6)→(10,10)→(15,15)→(20,20) | Medium |
+| 3. Embedded bitmaps | `get_images()` extract JPEG/PNG | Low (limited resolution) |
+| 4. Page render fallback | Full page at 300 DPI | Lowest (manual crop needed) |
+
+Strategy 0 is the key new enhancement — it uses figure caption positions to reverse-locate the actual figure region, dramatically reducing noise from decorative line elements. The `--report` flag generates `extraction_report.json` with per-strategy results and confidence scores.
+
+Check `output/figures/` and map files to paper Figure numbers using the `fig{N}` numbering in filenames.
+
+#### Path B: DOI → arXiv Source (high-res originals)
+
+If the paper has an arXiv version, the source `.tar.gz` contains the authors' original high-resolution figures (PDF/EPS/PNG), typically far better quality than PDF-extracted images:
+
+```bash
+# Resolve DOI to get arXiv ID and metadata
+python <SKILL_ROOT>/scripts/fetch_from_doi.py 10.1021/jacs.4c01234 --output output/
+
+# If arXiv source detected, download and extract figures automatically
+python <SKILL_ROOT>/scripts/fetch_from_doi.py 10.1021/jacs.4c01234 --download-arxiv --output output/
+```
+
+`fetch_from_doi.py` will:
+1. Query the Semantic Scholar API (free, no API key) to resolve DOI → paper metadata
+2. Detect arXiv ID and Open Access PDF links
+3. With `--download-arxiv`, download the arXiv source tarball and auto-extract figures
+
+#### Path C: MCP Tools for Remote Download (when no local PDF)
+
+When the user only provides a DOI or paper link without a local PDF file, use MCP tools:
+
+```
+mcp__ai4scholar__download_semantic  — Download paper PDF from Semantic Scholar
+mcp__ai4scholar__download_arxiv     — Download paper PDF from arXiv
+mcp__ai4scholar__read_semantic_paper — Extract full text (including figure captions)
+```
+
+After obtaining the PDF, return to Path A for figure extraction. MCP tools are best for:
+- User only has a DOI, no local file
+- Publisher PDF has compressed figures — try Semantic Scholar's open-access version
+- arXiv preprints often have better quality than paywalled publisher versions
+
+#### Path D: User Manual Provision (last resort)
+
+If all above paths fail, ask the user:
+- "Please provide the key figure files (Figure 1, Figure 2...)"
+- User can screenshot from publisher website or extract from Supporting Information
 
 **Figure selection principles**:
 - Select only figures that support the paper's argument (typically 4–8)
 - Priority: strategy/scheme diagram → core results → mechanism → validation/controls
 - Fewer, clearer figures are better than many crowded ones
+- For dense multi-panel figures, consider cropping to the 1–2 most critical panels
 
 ### Step 4: Write Slide-by-Slide Content
 
@@ -201,11 +299,9 @@ Each slide should convey ONE core message. Result slides should prioritize figur
 Use `scripts/create_ppt.py`:
 
 ```python
-import sys
-sys.path.insert(0, '<SKILL_ROOT>/scripts')
 from create_ppt import ChemistryPPT
 
-ppt = ChemistryPPT(theme="academic")  # "academic" | "dark" | "nature"
+ppt = ChemistryPPT(theme="academic")  # "academic" | "molecular" | "green" | "nature"
 
 ppt.add_title_slide(
     title_cn="中文标题",
@@ -281,8 +377,6 @@ ppt.save_report("output/presentation.pptx")  # JSON build report
 In addition to PPTX, generate a single-file HTML presentation with embedded figures (horizontal-slide style):
 
 ```python
-import sys
-sys.path.insert(0, '<SKILL_ROOT>/scripts')
 from generate_html import HtmlPPT
 
 html = HtmlPPT(title="Academic Report", theme="molecular")
@@ -346,16 +440,23 @@ print(report["errors"])          # actual errors
 ### Error Handling & Fallback Mechanisms
 
 **Figure extraction** (`extract_charts.py`):
-1. Multi-strategy: vector graphics → embedded images → page rendering fallback
+1. 5-layer strategy: caption-guided → vector graphics → multi-tolerance → embedded images → page rendering
 2. Compatible with PyMuPDF 1.19+ and 1.23+ (auto-switch `cluster_drawings` / `get_drawings` with manual clustering)
-3. Multi-tolerance retry (3→6→10→15→20) when default clustering finds too few figures
-4. Auto-generated JSON extraction report via `--report` flag
+3. Caption-guided extraction locates "Figure X" text then crops the region above, yielding high-confidence results
+4. Auto-generated JSON extraction report via `--report` flag with per-item confidence scores
+
+**DOI-based retrieval** (`fetch_from_doi.py`):
+1. Resolves DOI via Semantic Scholar API (free, no key) to find arXiv ID and open-access PDF links
+2. Can download and extract original high-res figures from arXiv source tarballs
+3. Provides fallback URLs for manual figure sourcing
 
 **Paper analysis** (`analyze_paper.py`):
-1. Encoding-safe: Windows GBK/ASCII fallback to prevent Unicode crashes
-2. Confidence-annotated paper classification (high/medium/low)
-3. Structured JSON output: `--json report.json` for workflow integration
-4. Weighted keyword detection: ×3 weight in first 1/3 of text (methods/results), ×1 in references
+1. Domain detection: `is_chemistry` flag warns when input may not be a chemistry paper
+2. Encoding-safe: stdout UTF-8 reconfiguration for Windows compatibility
+3. Confidence-annotated paper classification (high/medium/low)
+4. Structured JSON output: `--json report.json` for workflow integration
+5. Weighted keyword detection: ×3 weight in first 1/3 of text (methods/results), ×1 in references
+6. Configurable keywords via `references/chemistry_keywords.json` — no code changes needed
 
 **PPT building** (`create_ppt.py`):
 1. Missing images auto-recorded (build continues), summarized on `save()`
@@ -367,9 +468,12 @@ print(report["errors"])          # actual errors
 | Issue | Cause | Resolution |
 |-------|-------|------------|
 | `cluster_drawings` not found | PyMuPDF < 1.23 | Auto-fallback to `get_drawings()` manual clustering |
-| 0 vector figures extracted | Special PDF rendering | Multi-tolerance retry, ultimately page rendering |
-| Windows encoding crash | Unicode chars (e.g. `−`, `₂`) | `_safe_print()` auto-fallback to ASCII |
+| 0 vector figures extracted | Special PDF rendering | Caption-guided extraction → multi-tolerance retry → page rendering |
+| Low-res figures in PDF | Publisher PDF compression | Path B: fetch arXiv source for original high-res figures |
+| No local PDF available | User only provided DOI/link | Path C: MCP tools to download PDF, then Path A extraction |
+| Windows encoding crash | Unicode chars (e.g. `−`, `₂`) | `setup_utf8_stdout()` in utils.py, `_safe_print()` fallback |
 | Paper type misclassification | Characterization keywords in references | Weighted detection (body ×3), confidence annotation |
+| Non-chemistry input | Biology/physics/medicine paper | `is_chemistry` flag warns user; proceed only after confirmation |
 | Missing image files | Incorrect extraction or path | Recorded in `missing_images`, slide shows placeholder |
 
 ---
@@ -386,6 +490,7 @@ See `references/visual_style.md` for full details. Summary below:
 | **Molecular Tech** | `#1A5276` steel blue | `#E74C3C` bright red | Computational/materials |
 | **Green Chemistry** | `#1E5631` deep green | `#D4A017` gold | Catalysis/energy/environment |
 | **Nature Style** | `#222222` near-black | `#0066CC` blue | CNS journal presentations |
+| **LaTeX Beamer** | `#003366` deep blue | `#B41E1E` dark red | Conference/defense talks (serif fonts) |
 
 ### Typography
 
@@ -393,6 +498,7 @@ See `references/visual_style.md` for full details. Summary below:
 - Body: Regular sans-serif, 16–20pt
 - English/numbers: Arial / Helvetica
 - Chemistry formulas: monospace or appropriate serif
+- **LaTeX Beamer theme**: Full serif fonts (Latin Modern Roman / Georgia / Times New Roman), replicating the classic academic conference Beamer style. Install Latin Modern fonts for best results: download from CTAN or via system package manager
 
 ### Slide Layout
 
@@ -433,11 +539,14 @@ output/
 
 | Script | Function |
 |--------|----------|
-| `scripts/extract_charts.py` | Multi-strategy figure extraction (vector + embedded + fallback) |
-| `scripts/analyze_paper.py` | PDF structure analysis, paper type classification, JSON output |
-| `scripts/convert_to_images.py` | PDF page to high-res image conversion |
+| `scripts/analyze_paper.py` | PDF structure analysis, paper type classification, domain detection, JSON output |
+| `scripts/extract_charts.py` | 5-layer figure extraction (caption-guided → vector → embedded → page render) |
+| `scripts/fetch_from_doi.py` | **New** DOI resolver: Semantic Scholar / arXiv API → high-res figure sources |
+| `scripts/convert_to_images.py` | PDF page to high-res image conversion (requires poppler/pdf2image) |
 | `scripts/create_ppt.py` | Main script: ChemistryPPT class for academic PPTX creation |
 | `scripts/generate_html.py` | HTML generator: single-file horizontal-slide web deck |
+| `scripts/generate_report.py` | Report generator: Markdown academic reading notes |
+| `scripts/utils.py` | **New** Shared utilities: safe_print / cluster_drawings_compat / setup_utf8_stdout |
 
 ---
 

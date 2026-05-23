@@ -2,14 +2,35 @@
 PDF转图片脚本 - 将PDF每一页转换为高清图片
 PDF to Images Converter - Converts PDF pages to high-resolution images
 """
-from pdf2image import convert_from_path
 import os
 import sys
+import shutil
+import subprocess
+from pdf2image import convert_from_path
+
+
+def _check_poppler():
+    """Check if poppler is available. Returns True if pdf2image can work."""
+    # pdf2image can use a bundled poppler or one on PATH
+    if shutil.which("pdftoppm") or shutil.which("poppler"):
+        return True
+    # On Windows, check common install locations
+    if sys.platform == "win32":
+        common_paths = [
+            os.path.expandvars(r"%PROGRAMFILES%\poppler\bin"),
+            os.path.expandvars(r"%PROGRAMFILES(X86)%\poppler\bin"),
+            os.path.expandvars(r"%USERPROFILE%\poppler\bin"),
+        ]
+        for p in common_paths:
+            if os.path.isdir(p):
+                return True
+    return False
+
 
 def pdf_to_images(pdf_path, output_dir="pdf_images", dpi=200, fmt="PNG"):
     """
     将PDF转换为图片
-    
+
     Args:
         pdf_path: PDF文件路径
         output_dir: 输出目录
@@ -18,31 +39,38 @@ def pdf_to_images(pdf_path, output_dir="pdf_images", dpi=200, fmt="PNG"):
     """
     if not os.path.exists(pdf_path):
         print(f"Error: File not found: {pdf_path}")
-        return
-    
+        return None
+
+    if not _check_poppler():
+        print("Error: poppler-utils not found. pdf2image requires poppler.")
+        print("  macOS:  brew install poppler")
+        print("  Linux:  sudo apt-get install poppler-utils")
+        print("  Windows: https://github.com/oschwartz10612/poppler-windows/releases/")
+        return None
+
     # 创建输出目录
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    
+
     print(f"Converting PDF: {pdf_path}")
     print(f"Output directory: {output_dir}")
     print(f"DPI: {dpi}, Format: {fmt}")
     print("-" * 40)
-    
+
     try:
         images = convert_from_path(pdf_path, dpi=dpi)
         print(f"Successfully converted {len(images)} pages")
-        
+
         for i, image in enumerate(images):
             page_num = i + 1
             image_path = os.path.join(output_dir, f"page_{page_num}.{fmt.lower()}")
             image.save(image_path, fmt)
             print(f"  Saved: page_{page_num}.{fmt.lower()}")
-        
+
         print("-" * 40)
         print(f"Conversion complete! {len(images)} pages saved to: {output_dir}")
         return len(images)
-        
+
     except Exception as e:
         print(f"Error: {e}")
         return 0

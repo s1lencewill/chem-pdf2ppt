@@ -9,12 +9,12 @@ import json
 import re
 import base64
 
+# Ensure scripts/ dir on path for direct invocation
+_scripts_dir = os.path.dirname(os.path.abspath(__file__))
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
 
-def _safe_print(msg):
-    try:
-        print(msg)
-    except UnicodeEncodeError:
-        print(msg.encode('ascii', errors='replace').decode('ascii'))
+from utils import safe_print as _safe_print
 
 
 # ============================================================
@@ -52,6 +52,16 @@ THEMES = {
         "bg_light": "#F8F8F8", "text": "#444444",
         "muted": "#A0A0A0", "section_bg": "#222222",
         "section_text": "#FFFFFF", "table_stripe": "#F5F5F5",
+    },
+    "latex": {
+        "name": "LaTeX Beamer",
+        "primary": "#003366", "primary_rgb": "0,51,102",
+        "accent": "#B41E1E", "bg": "#FFFFFF",
+        "bg_light": "#FAFAFC", "text": "#222222",
+        "muted": "#787878", "section_bg": "#003366",
+        "section_text": "#FFFFFF", "table_stripe": "#F8F9FC",
+        "title_font": "'Latin Modern Roman', 'Georgia', 'Times New Roman', serif",
+        "body_font": "'Latin Modern Roman', 'Georgia', 'Times New Roman', serif",
     },
 }
 
@@ -231,6 +241,10 @@ class HtmlPPT:
             '__SECTION_BG__': theme['section_bg'],
             '__SECTION_TEXT__': theme['section_text'],
             '__TABLE_STRIPE__': theme['table_stripe'],
+            '__TITLE_FONT__': theme.get('title_font',
+                '"Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif'),
+            '__BODY_FONT__': theme.get('body_font',
+                '"Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif'),
             '__NSLIDES__': str(len(self.slides)),
             '__TOTAL__': str(len(self.slides)),
         }

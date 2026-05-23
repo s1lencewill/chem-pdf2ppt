@@ -16,6 +16,8 @@
     --section-bg: __SECTION_BG__;
     --section-text: __SECTION_TEXT__;
     --table-stripe: __TABLE_STRIPE__;
+    --title-font: __TITLE_FONT__;
+    --body-font: __BODY_FONT__;
     --slide-width: 100vw;
     --slide-height: 100vh;
   }
@@ -25,8 +27,10 @@
   html, body {
     width: 100%; height: 100%; overflow: hidden;
     background: var(--bg); color: var(--text);
-    font-family: "Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+    font-family: var(--body-font, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif);
     -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { font-family: var(--title-font, var(--body-font)); }
   }
 
   /* Slide container */

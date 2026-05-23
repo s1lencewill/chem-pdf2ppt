@@ -6,7 +6,12 @@ Complete examples for experimental, computational, and hybrid chemistry papers.
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+# Ensure the scripts/ directory is importable
+_scripts_dir = os.path.join(os.path.dirname(__file__), '..', 'scripts')
+_scripts_dir = os.path.abspath(_scripts_dir)
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
+
 from create_ppt import ChemistryPPT
 
 

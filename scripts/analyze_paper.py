@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 PDF 论文分析脚本 — 化学论文类型识别、章节结构、图表位置、关键信息提取
-Chemistry Paper Analyzer with JSON output and robust encoding handling
+Chemistry Paper Analyzer with JSON output and robust encoding handling.
+
+Keywords are loaded from references/chemistry_keywords.json (configurable).
 """
 import fitz
 import sys
@@ -10,76 +12,151 @@ import re
 import json
 from collections import defaultdict
 
+# Ensure scripts/ dir on path for direct invocation
+_scripts_dir = os.path.dirname(os.path.abspath(__file__))
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
 
-def _safe_print(msg):
-    """Windows-safe print."""
-    try:
-        print(msg)
-    except UnicodeEncodeError:
-        print(msg.encode('ascii', errors='replace').decode('ascii'))
+from utils import safe_print as _safe_print, cluster_drawings_compat
 
 
 # ============================================================
-# 化学关键词库 / Chemistry Keyword Database
+# 关键词加载 / Keyword Loading
 # ============================================================
 
-CHEM_KEYWORDS = {
-    "催化": ["cataly", "TOF", "turnover", "selectivity", "conversion",
-             "catalyst", "active site", "Sabatier", "d-band", "overpotential"],
-    "材料": ["MOF", "COF", "perovskite", "zeolite", "framework",
-             "polymer", "nanosheet", "nanoparticle", "quantum dot"],
-    "有机合成": ["synthesis", "yield", "substrate scope", "coupling",
-                 "cross-coupling", "organocatal", "asymmetric", "functional group"],
-    "计算化学": [
-        "DFT", "density functional", "VASP", "Gaussian", "CP2K",
-        "Quantum ESPRESSO", "molecular dynamics", "AIMD", "ab initio",
-        "MD simulation", "free energy", "transition state",
-        "k-point", "pseudopotential", "PAW", "basis set",
-        "B3LYP", "PBE", "RPBE", "SCAN", "HSE", "GGA", "PBE0",
-        "Hartree-Fock", "coupled cluster", "CCSD", "MP2",
-        "Monte Carlo", "metadynamics", "enhanced sampling",
-        "reaction coordinate", "diabatic", "adiabatic",
-        "reorganization energy", "Marcus theory"
-    ],
-    "电化学": ["electrochem", "ORR", "OER", "HER", "CO2RR", "NRR",
-               "Li-ion", "battery", "supercapacitor", "electrolyte",
-               "faradaic efficiency", "Tafel", "RHE", "SHE"],
-    "光谱/表征": ["XRD", "XPS", "TEM", "SEM", "STEM", "HAADF",
-                  "NMR", "IR", "Raman", "EXAFS", "XANES", "BET",
-                  "EPR", "UV-vis", "AFM", "FTIR", "spectroscopy"],
-    "环境/大气": ["atmospheric", "aerosol", "SOA", "PM2.5", "oxidation",
-                  "OH radical", "ozone", "photochem", "tropospheric"],
-    "能源": ["solar cell", "perovskite solar", "water splitting",
-             "hydrogen evolution", "photocatal", "fuel cell", "battery"],
-    "辐射化学": ["radiolysis", "pulse radiolysis", "hydrated electron",
-                 "solvated electron", "transient absorption"],
-}
+def _load_keywords():
+    """Load chemistry keywords from JSON config, with embedded fallback."""
+    config_paths = [
+        os.path.join(_scripts_dir, "..", "references", "chemistry_keywords.json"),
+        os.path.join(_scripts_dir, "chemistry_keywords.json"),
+    ]
+    for cp in config_paths:
+        try:
+            cfg = json.loads(open(cp, encoding="utf-8").read())
+            subfields_raw = cfg.get("subfields", {})
+            chem_keywords = {}
+            for name, entry in subfields_raw.items():
+                chem_keywords[name] = entry.get("keywords", [])
+            char_terms = cfg.get("characterization_terms", [])
+            comp_strong = cfg.get("computational_strong_signals", [])
+            section_pats = cfg.get("section_patterns", [])
+            method_pats = cfg.get("method_patterns", [])
+            return chem_keywords, char_terms, comp_strong, section_pats, method_pats
+        except Exception:
+            continue
 
-# 表征关键词（仅在方法/实验段落出现时才算实验信号）
-CHARACTERIZATION_TERMS = [
-    "XRD", "XPS", "TEM", "SEM", "STEM", "HAADF", "NMR", "IR",
-    "Raman", "EXAFS", "XANES", "BET", "EPR", "UV-vis", "AFM", "FTIR"
-]
-
-# 计算关键词（强信号）
-COMPUTATIONAL_STRONG = [
-    "DFT", "density functional theory", "VASP", "Gaussian", "CP2K",
-    "Quantum ESPRESSO", "ab initio molecular dynamics", "AIMD",
-    "PBE0", "B3LYP", "PBE", "Hartree-Fock", "CCSD", "MP2",
-    "transition state", "reaction coordinate", "diabatic",
-    "pseudopotential", "basis set", "k-point", "cutoff",
-    "molecular dynamics simulation", "trajector"
-]
+    # Fallback: embedded defaults (keeps script self-contained)
+    _safe_print("[analyze_paper] Config file not found, using built-in defaults.")
+    return _builtin_defaults()
 
 
-def analyze_pdf(pdf_path, verbose=True, output_json=None):
+def _builtin_defaults():
+    """Built-in keyword defaults — used when JSON config is unavailable."""
+    chem_keywords = {
+        "催化": ["cataly", "TOF", "turnover", "selectivity", "conversion",
+                 "catalyst", "active site", "Sabatier", "d-band", "overpotential"],
+        "材料": ["MOF", "COF", "perovskite", "zeolite", "framework",
+                 "polymer", "nanosheet", "nanoparticle", "quantum dot"],
+        "有机合成": ["synthesis", "yield", "substrate scope", "coupling",
+                     "cross-coupling", "organocatal", "asymmetric", "functional group"],
+        "计算化学": [
+            "DFT", "density functional", "VASP", "Gaussian", "CP2K",
+            "Quantum ESPRESSO", "molecular dynamics", "AIMD", "ab initio",
+            "MD simulation", "free energy", "transition state",
+            "k-point", "pseudopotential", "PAW", "basis set",
+            "B3LYP", "PBE", "RPBE", "SCAN", "HSE", "GGA", "PBE0",
+            "Hartree-Fock", "coupled cluster", "CCSD", "MP2",
+            "Monte Carlo", "metadynamics", "enhanced sampling",
+            "reaction coordinate", "diabatic", "adiabatic",
+            "reorganization energy", "Marcus theory"],
+        "电化学": ["electrochem", "ORR", "OER", "HER", "CO2RR", "NRR",
+                   "Li-ion", "battery", "supercapacitor", "electrolyte",
+                   "faradaic efficiency", "Tafel", "RHE", "SHE"],
+        "光谱/表征": ["XRD", "XPS", "TEM", "SEM", "STEM", "HAADF",
+                      "NMR", "IR", "Raman", "EXAFS", "XANES", "BET",
+                      "EPR", "UV-vis", "AFM", "FTIR", "spectroscopy"],
+        "环境/大气": ["atmospheric", "aerosol", "SOA", "PM2.5", "oxidation",
+                      "OH radical", "ozone", "photochem", "tropospheric"],
+        "能源": ["solar cell", "perovskite solar", "water splitting",
+                 "hydrogen evolution", "photocatal", "fuel cell", "battery"],
+        "辐射化学": ["radiolysis", "pulse radiolysis", "hydrated electron",
+                     "solvated electron", "transient absorption"],
+    }
+    char_terms = ["XRD", "XPS", "TEM", "SEM", "STEM", "HAADF", "NMR", "IR",
+                  "Raman", "EXAFS", "XANES", "BET", "EPR", "UV-vis", "AFM", "FTIR"]
+    comp_strong = ["DFT", "density functional theory", "VASP", "Gaussian", "CP2K",
+                   "Quantum ESPRESSO", "ab initio molecular dynamics", "AIMD",
+                   "PBE0", "B3LYP", "PBE", "Hartree-Fock", "CCSD", "MP2",
+                   "transition state", "reaction coordinate", "diabatic",
+                   "pseudopotential", "basis set", "k-point", "cutoff",
+                   "molecular dynamics simulation", "trajector"]
+    section_pats = [
+        [r"^\s*(?:Abstract|摘要)\s*$", "Abstract"],
+        [r"^\s*(?:Introduction|引言|绪论)\s*$", "Introduction"],
+        [r"^\s*(?:Method|Experimental|Computational|计算方法?|实验方法?|Theory)\s*", "Methods"],
+        [r"^\s*(?:Result|Discussion|结果|讨论)\s*", "Results"],
+        [r"^\s*(?:Conclusion|结论|Summary|总结)\s*$", "Conclusions"],
+        [r"^\s*(?:Supporting Information|SI|附录|补充|References?)\s*", "SI/References"],
+    ]
+    method_pats = [
+        [r"CP2K|VASP|Gaussian\s*\d+|Q-Chem\s*\d+|GROMACS|LAMMPS|Quantum\s+ESPRESSO", 2],
+        [r"PBE0|B3LYP|PBE|RPBE|SCAN|HSE06|GGA|LDA|meta-GGA", 1],
+        [r"impregnation|sol-gel|hydrothermal|solvothermal|co-precipitation|calcination|pyrolysis", 1],
+        [r"XRD|XPS|TEM|SEM|STEM|HAADF-STEM|NMR|IR|Raman|EXAFS|XANES|BET|EPR", 1],
+    ]
+    return chem_keywords, char_terms, comp_strong, section_pats, method_pats
+
+
+# Module-level lazy load
+_CHEM_KW, _CHAR_TERMS, _COMP_STRONG, _SECTION_PATS, _METHOD_PATS = (None,) * 5
+
+
+def _kw():
+    """Lazy keyword loader — loads JSON once on first access."""
+    global _CHEM_KW, _CHAR_TERMS, _COMP_STRONG, _SECTION_PATS, _METHOD_PATS
+    if _CHEM_KW is None:
+        _CHEM_KW, _CHAR_TERMS, _COMP_STRONG, _SECTION_PATS, _METHOD_PATS = _load_keywords()
+    return _CHEM_KW, _CHAR_TERMS, _COMP_STRONG, _SECTION_PATS, _METHOD_PATS
+
+
+def is_chemistry_domain(text: str, min_signal_count: int = 3) -> bool:
+    """Detect whether the text is likely a chemistry paper.
+
+    Returns False for clearly non-chemistry domains (biology, physics, medicine
+    without chemical content), allowing the caller to warn or switch strategies.
+
+    Args:
+        text: Full paper text.
+        min_signal_count: Minimum unique keyword matches to classify as chemistry.
+    """
+    chem_kw, char_terms, comp_strong, _, _ = _kw()
+    text_lower = text.lower()
+    hits = 0
+    # Count unique keyword families that match
+    for subfield, keywords in chem_kw.items():
+        if any(kw.lower() in text_lower for kw in keywords):
+            hits += 1
+    return hits >= min_signal_count
+
+
+def analyze_pdf(pdf_path, verbose=True, output_json=None, lang="zh"):
     """分析 PDF 论文的完整结构和内容
 
+    Args:
+        pdf_path: Path to the PDF file.
+        verbose: Print analysis summary to stdout.
+        output_json: If set, write JSON report to this path.
+        lang: Output language hint — 'zh' (Chinese) or 'en' (English).
+              Affects log messages only; JSON keys remain English.
+
     Returns:
-        dict: 论文全部分析结果
+        dict: Structured analysis result. Contains ``is_chemistry`` flag
+              indicating whether the paper was recognized as chemistry domain.
     """
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
+
+    chem_kw, char_terms, comp_strong, section_pats, method_pats = _kw()
 
     errors = []
     doc = fitz.open(pdf_path)
@@ -95,6 +172,7 @@ def analyze_pdf(pdf_path, verbose=True, output_json=None):
         "chemical_methods": [],
         "total_pages": len(doc),
         "has_supporting_info": False,
+        "is_chemistry": True,
         "errors": errors,
     }
 
@@ -117,21 +195,22 @@ def analyze_pdf(pdf_path, verbose=True, output_json=None):
 
     full_text_lower = full_text.lower()
 
+    # ---- 领域检测 ----
+    result["is_chemistry"] = is_chemistry_domain(full_text)
+    if not result["is_chemistry"]:
+        msg = ("Domain detection: few chemistry signals found. "
+               "Paper may not be chemistry. Output may be inaccurate. "
+               "Consider adapting keyword config for this domain.")
+        errors.append(msg)
+        if verbose:
+            _safe_print(f"  [!] {msg}")
+
     # ---- 标题提取 ----
     lines = [l.strip() for l in first_page_text.split('\n') if l.strip()]
     if lines:
         result["title"] = lines[0]
 
-    # ---- 章节检测 ----
-    section_patterns = [
-        (r'^\s*(?:Abstract|摘要)\s*$', "Abstract"),
-        (r'^\s*(?:Introduction|引言|绪论)\s*$', "Introduction"),
-        (r'^\s*(?:Method|Experimental|Computational|计算方法?|实验方法?|Theory)\s*', "Methods"),
-        (r'^\s*(?:Result|Discussion|结果|讨论)\s*', "Results"),
-        (r'^\s*(?:Conclusion|结论|Summary|总结)\s*$', "Conclusions"),
-        (r'^\s*(?:Supporting Information|SI|附录|补充|References?)\s*', "SI/References"),
-    ]
-
+    # ---- 章节检测 (from config) ----
     for page_num in range(len(doc)):
         try:
             page = doc[page_num]
@@ -140,7 +219,7 @@ def analyze_pdf(pdf_path, verbose=True, output_json=None):
                 line_stripped = line.strip()
                 if not line_stripped or len(line_stripped) > 80:
                     continue
-                for pat, label in section_patterns:
+                for pat, label in section_pats:
                     if re.match(pat, line_stripped, re.I):
                         result["sections"].append({
                             "page": page_num + 1,
@@ -152,43 +231,10 @@ def analyze_pdf(pdf_path, verbose=True, output_json=None):
             pass
 
     # ---- 图表检测 (version-compatible clustering) ----
-    def _cluster_compat(page, x_tol=3, y_tol=3):
-        """兼容 PyMuPDF 新旧版本的图形聚类"""
-        if hasattr(page, 'cluster_drawings'):
-            try:
-                return page.cluster_drawings(x_tolerance=x_tol, y_tolerance=y_tol)
-            except Exception:
-                pass
-        try:
-            drawings = page.get_drawings()
-        except Exception:
-            return []
-        if not drawings:
-            return []
-        rects = []
-        for d in drawings:
-            r = d.get('rect')
-            if r and r.x1 - r.x0 > 0.5 and r.y1 - r.y0 > 0.5:
-                rects.append(fitz.Rect(r.x0 - x_tol, r.y0 - y_tol, r.x1 + x_tol, r.y1 + y_tol))
-        if not rects:
-            return []
-        rects.sort(key=lambda r: (r.y0, r.x0))
-        clusters = [rects[0]]
-        for r in rects[1:]:
-            merged = False
-            for i, c in enumerate(clusters):
-                if r.intersects(c):
-                    clusters[i] = c | r
-                    merged = True
-                    break
-            if not merged:
-                clusters.append(r)
-        return [fitz.Rect(c.x0 + x_tol, c.y0 + y_tol, c.x1 - x_tol, c.y1 - y_tol) & page.rect for c in clusters]
-
     for page_num in range(len(doc)):
         try:
             page = doc[page_num]
-            rects = _cluster_compat(page)
+            rects = cluster_drawings_compat(page)
             for rect in rects:
                 if rect.width > 100 and rect.height > 80:
                     nearby_rect = fitz.Rect(
@@ -220,24 +266,21 @@ def analyze_pdf(pdf_path, verbose=True, output_json=None):
         except Exception:
             pass
 
-    # ---- 论文类型判定 (改进逻辑) ----
-    # 在正文前1/3部分（通常不含大量参考文献）检测信号
+    # ---- 论文类型判定 (加权检测) ----
+    # 前1/3正文中的信号权重×3（参考文献区域通常在后半部）
     text_first_third = full_text[:len(full_text) // 3].lower()
 
     computational_score = 0
-    for kw in COMPUTATIONAL_STRONG:
+    for kw in comp_strong:
         if kw.lower() in full_text_lower:
-            # 强信号在方法部分（前1/3）权重更高
             if kw.lower() in text_first_third:
                 computational_score += 3
             else:
                 computational_score += 1
 
-    # 表征关键词检测 — 只在 methods/results 区域有意义
-    char_in_text = sum(1 for t in CHARACTERIZATION_TERMS if t.lower() in full_text_lower)
-    char_in_first_third = sum(1 for t in CHARACTERIZATION_TERMS if t.lower() in text_first_third)
+    char_in_text = sum(1 for t in char_terms if t.lower() in full_text_lower)
+    char_in_first_third = sum(1 for t in char_terms if t.lower() in text_first_third)
 
-    # 判定逻辑
     has_strong_char = char_in_first_third >= 2
     has_strong_comp = computational_score >= 5
 
@@ -260,19 +303,13 @@ def analyze_pdf(pdf_path, verbose=True, output_json=None):
         errors.append("Insufficient signals for confident paper type classification.")
 
     # ---- 化学子领域识别 ----
-    for subfield, keywords in CHEM_KEYWORDS.items():
+    for subfield, keywords in chem_kw.items():
         match_count = sum(1 for kw in keywords if kw.lower() in full_text_lower)
         if match_count >= 2:
             result["subfields"].append(subfield)
 
     # ---- 特征方法提取 ----
-    method_patterns = [
-        (r'(CP2K|VASP|Gaussian\s*\d+|Q-Chem\s*\d+|GROMACS|LAMMPS|Quantum\s+ESPRESSO)', 2),
-        (r'(PBE0|B3LYP|PBE|RPBE|SCAN|HSE06|GGA|LDA|meta-GGA)', 1),
-        (r'(impregnation|sol-gel|hydrothermal|solvothermal|co-precipitation|calcination|pyrolysis)', 1),
-        (r'(XRD|XPS|TEM|SEM|STEM|HAADF-STEM|NMR|IR|Raman|EXAFS|XANES|BET|EPR)', 1),
-    ]
-    for pattern, weight in method_patterns:
+    for pattern, weight in method_pats:
         for m in re.finditer(pattern, full_text, re.I):
             method = m.group(0).strip()
             if method and method not in result["chemical_methods"]:
@@ -285,11 +322,13 @@ def analyze_pdf(pdf_path, verbose=True, output_json=None):
     doc.close()
 
     # ---- 输出 ----
+    _unrecognized = "未识别" if lang == "zh" else "unrecognized"
     if verbose:
         _safe_print(f"PDF Analysis: {result['source']}")
         _safe_print(f"  Pages: {result['total_pages']}")
         _safe_print(f"  Paper Type: {result['paper_type']} (confidence: {result['paper_type_confidence']})")
-        _safe_print(f"  Subfields: {', '.join(result['subfields']) or '未识别'}")
+        _safe_print(f"  Chemistry: {'yes' if result['is_chemistry'] else 'NO — see warnings'}")
+        _safe_print(f"  Subfields: {', '.join(result['subfields']) or _unrecognized}")
         _safe_print(f"  Sections: {len(result['sections'])} detected")
         _safe_print(f"  Figures: {sum(len(v) for v in result['figures_detected'].values())} detected")
         _safe_print(f"  Methods: {', '.join(result['chemical_methods'][:8])}")
@@ -307,7 +346,7 @@ def analyze_pdf(pdf_path, verbose=True, output_json=None):
         result_out["tables_detected"] = {
             k: v for k, v in result["tables_detected"].items()
         }
-        with open(output_json, 'w', encoding='utf-8') as f:
+        with open(output_json, 'w', encoding='utf-8') as f:  # encoding utf-8
             json.dump(result_out, f, indent=2, ensure_ascii=False)
         _safe_print(f"  JSON report: {output_json}")
 
@@ -316,18 +355,21 @@ def analyze_pdf(pdf_path, verbose=True, output_json=None):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python analyze_paper.py <pdf_file> [--json output.json]")
-        print("Example: python analyze_paper.py paper.pdf --json report.json")
+        print("Usage: python analyze_paper.py <pdf_file> [--json output.json] [--lang zh|en]")
+        print("Example: python analyze_paper.py paper.pdf --json report.json --lang en")
         return
 
     pdf_path = sys.argv[1]
     output_json = None
+    lang = "zh"
 
     for i, arg in enumerate(sys.argv):
         if arg == "--json" and i + 1 < len(sys.argv):
             output_json = sys.argv[i + 1]
+        if arg == "--lang" and i + 1 < len(sys.argv):
+            lang = sys.argv[i + 1] if sys.argv[i + 1] in ("zh", "en") else "zh"
 
-    analyze_pdf(pdf_path, verbose=True, output_json=output_json)
+    analyze_pdf(pdf_path, verbose=True, output_json=output_json, lang=lang)
 
 
 if __name__ == "__main__":

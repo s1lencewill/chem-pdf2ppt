@@ -5,13 +5,14 @@ Chemistry Academic Paper Report Generator — produces publication-ready reading
 输出格式: Markdown (.md), HTML (.html, 可在浏览器中打印为 PDF)
 """
 import os
+import sys
 
+# Ensure scripts/ dir on path for direct invocation
+_scripts_dir = os.path.dirname(os.path.abspath(__file__))
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
 
-def _safe_print(msg):
-    try:
-        print(msg)
-    except UnicodeEncodeError:
-        print(msg.encode('ascii', errors='replace').decode('ascii'))
+from utils import safe_print as _safe_print
 
 
 # ============================================================

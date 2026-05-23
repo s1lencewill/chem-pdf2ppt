@@ -8,14 +8,12 @@ Chemistry Academic Presentation Builder for experimental, computational, and hyb
 import sys
 import os
 
+# Ensure scripts/ dir on path for direct invocation
+_scripts_dir = os.path.dirname(os.path.abspath(__file__))
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
 
-def _safe_print(msg):
-    """Windows-safe print that avoids GBK encoding crashes."""
-    try:
-        print(msg)
-    except UnicodeEncodeError:
-        print(msg.encode('ascii', errors='replace').decode('ascii'))
-
+from utils import safe_print as _safe_print
 
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu, Cm
@@ -86,6 +84,24 @@ THEMES = {
         "table_header": (34, 34, 34),
         "table_stripe": (245, 245, 245),
     },
+    "latex": {
+        "name": "LaTeX Beamer",
+        "bg":           (255, 255, 255),    # 纯白背景
+        "title_color":  (0, 51, 102),       # Beamer 经典深蓝
+        "text_color":   (34, 34, 34),       # 近黑正文
+        "accent":       (180, 30, 30),      # 暗红强调
+        "light_bg":     (250, 250, 252),    # 极浅蓝灰
+        "section_bg":   (0, 51, 102),       # 章节页深蓝
+        "section_text": (255, 255, 255),    # 白字
+        "muted":        (120, 120, 120),    # 灰
+        "border":       (210, 215, 225),    # 浅灰蓝边框
+        "table_header": (0, 51, 102),       # 深蓝表头
+        "table_stripe": (248, 249, 252),    # 极浅蓝条纹
+        "title_font":   "Latin Modern Roman",   # LaTeX 衬线字体
+        "body_font":    "Latin Modern Roman",
+        "fallback_title": "Georgia",
+        "fallback_body":  "Georgia",
+    },
 }
 
 
@@ -120,8 +136,9 @@ class ChemistryPPT:
 
     def _add_textbox(self, slide, left, top, width, height,
                      text="", font_size=18, bold=False, color=None,
-                     alignment=PP_ALIGN.LEFT, font_name=None, word_wrap=True):
-        """添加文本框并返回 text_frame"""
+                     alignment=PP_ALIGN.LEFT, font_name=None, word_wrap=True,
+                     is_title=False):
+        """添加文本框并返回 text_frame。is_title=True 时使用标题字体。"""
         tb = slide.shapes.add_textbox(Inches(left), Inches(top),
                                        Inches(width), Inches(height))
         tf = tb.text_frame
@@ -132,8 +149,13 @@ class ChemistryPPT:
         p.font.bold = bold
         p.font.color.rgb = RGBColor(*(color or self.t["text_color"]))
         p.alignment = alignment
+        # 优先使用传入字体，其次主题字体，最后系统默认
         if font_name:
             p.font.name = font_name
+        elif is_title and self.t.get("title_font"):
+            p.font.name = self.t["title_font"]
+        elif not is_title and self.t.get("body_font"):
+            p.font.name = self.t["body_font"]
         return tf
 
     def _add_multi_paragraph(self, tf, texts, font_size=18, color=None,
@@ -194,7 +216,8 @@ class ChemistryPPT:
         self._add_textbox(
             slide, 0.7, 1.8, 11.9, 2.0,
             title_cn, font_size=38, bold=True,
-            color=self.t["title_color"], alignment=PP_ALIGN.LEFT)
+            color=self.t["title_color"], alignment=PP_ALIGN.LEFT,
+            is_title=True)
 
         # 英文标题
         if title_en:
@@ -241,7 +264,8 @@ class ChemistryPPT:
         self._add_textbox(
             slide, 1.5, 3.0, 10.5, 1.5,
             title, font_size=40, bold=True,
-            color=self.t["section_text"], alignment=PP_ALIGN.LEFT)
+            color=self.t["section_text"], alignment=PP_ALIGN.LEFT,
+            is_title=True)
 
         if subtitle:
             self._add_textbox(
@@ -262,7 +286,8 @@ class ChemistryPPT:
         # 标题
         self._add_textbox(
             slide, 0.7, 0.4, 11.9, 0.8,
-            title, font_size=32, bold=True, color=self.t["title_color"])
+            title, font_size=32, bold=True, color=self.t["title_color"],
+            is_title=True)
 
         # 标题下细线
         self._add_line(slide, 0.7, 1.15, 8.0, 1.15, self.t["accent"], Pt(1.5))
@@ -314,7 +339,8 @@ class ChemistryPPT:
         # 标题
         self._add_textbox(
             slide, 0.7, 0.3, 11.9, 0.7,
-            title, font_size=28, bold=True, color=self.t["title_color"])
+            title, font_size=28, bold=True, color=self.t["title_color"],
+            is_title=True)
         self._add_line(slide, 0.7, 1.0, 7.0, 1.0, self.t["accent"], Pt(1.5))
 
         bullets = bullets or []
@@ -452,7 +478,8 @@ class ChemistryPPT:
 
         self._add_textbox(
             slide, 0.7, 0.3, 11.9, 0.7,
-            title, font_size=28, bold=True, color=self.t["title_color"])
+            title, font_size=28, bold=True, color=self.t["title_color"],
+            is_title=True)
         self._add_line(slide, 0.7, 1.0, 7.0, 1.0, self.t["accent"], Pt(1.5))
 
         n_rows = len(rows) + 1  # +1 for header
@@ -484,15 +511,9 @@ class ChemistryPPT:
                 paragraph.font.bold = True
                 paragraph.font.color.rgb = RGBColor(255, 255, 255)
                 paragraph.alignment = PP_ALIGN.CENTER
-            # 表头背景
-            tcPr = cell._tc.get_or_add_tcPr()
-            solidFill = cell._tc.makeelement(
-                '{http://schemas.openxmlformats.org/drawingml/2006/main}solidFill', {})
-            srgbClr = cell._tc.makeelement(
-                '{http://schemas.openxmlformats.org/drawingml/2006/main}srgbClr',
-                {'val': '{:02X}{:02X}{:02X}'.format(*self.t["table_header"])})
-            solidFill.append(srgbClr)
-            tcPr.append(solidFill)
+            # 表头背景 — use public API, not raw XML manipulation
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = RGBColor(*self.t["table_header"])
 
         # 数据行
         for row_idx, row in enumerate(rows):
@@ -503,16 +524,10 @@ class ChemistryPPT:
                     paragraph.font.size = Pt(13)
                     paragraph.font.color.rgb = RGBColor(*self.t["text_color"])
                     paragraph.alignment = PP_ALIGN.CENTER
-                # 斑马纹
+                # 斑马纹 — use public API
                 if row_idx % 2 == 0:
-                    tcPr = cell._tc.get_or_add_tcPr()
-                    solidFill = cell._tc.makeelement(
-                        '{http://schemas.openxmlformats.org/drawingml/2006/main}solidFill', {})
-                    srgbClr = cell._tc.makeelement(
-                        '{http://schemas.openxmlformats.org/drawingml/2006/main}srgbClr',
-                        {'val': '{:02X}{:02X}{:02X}'.format(*self.t["table_stripe"])})
-                    solidFill.append(srgbClr)
-                    tcPr.append(solidFill)
+                    cell.fill.solid()
+                    cell.fill.fore_color.rgb = RGBColor(*self.t["table_stripe"])
 
         if notes:
             self._add_textbox(
@@ -534,7 +549,8 @@ class ChemistryPPT:
 
         self._add_textbox(
             slide, 0.7, 0.6, 11.9, 0.8,
-            title, font_size=34, bold=True, color=self.t["title_color"])
+            title, font_size=34, bold=True, color=self.t["title_color"],
+            is_title=True)
 
         # 要点
         tb = slide.shapes.add_textbox(
@@ -570,7 +586,8 @@ class ChemistryPPT:
         self._add_textbox(
             slide, 0, 2.5, 13.333, 1.5,
             title, font_size=48, bold=True,
-            color=self.t["section_text"], alignment=PP_ALIGN.CENTER)
+            color=self.t["section_text"], alignment=PP_ALIGN.CENTER,
+            is_title=True)
 
         if subtitle:
             self._add_textbox(
@@ -595,7 +612,8 @@ class ChemistryPPT:
 
         self._add_textbox(
             slide, 0.7, 0.3, 11.9, 0.7,
-            title, font_size=28, bold=True, color=self.t["title_color"])
+            title, font_size=28, bold=True, color=self.t["title_color"],
+            is_title=True)
         self._add_line(slide, 0.7, 1.0, 7.0, 1.0, self.t["accent"], Pt(1.5))
 
         n_items = len(image_items)
