@@ -6,7 +6,8 @@
 [![github stars](https://img.shields.io/github/stars/s1lencewill/chem-pdf2ppt?style=social)](https://github.com/s1lencewill/chem-pdf2ppt)
 
 将化学领域学术论文 PDF 转换为专业学术演示文稿的Agent skill。支持 **PPTX** 和 **HTML** 两种输出格式。
-
+readCTCpaper 是针对理论和计算化学特制的报告生成skill
+readAtmosChempaper 是针对大气化学特制的报告生成skill
 ## 核心特性
 
 - **论文化学类型自动识别**：实验化学 / 理论计算化学 / 实验+理论混合，自动匹配叙事结构
