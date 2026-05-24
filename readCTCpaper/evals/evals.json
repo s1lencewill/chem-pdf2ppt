@@ -1,0 +1,23 @@
+{
+  "skill_name": "readCTCpaper",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "请帮我深度解析这篇JACS论文，生成一份完整的专业阅读笔记。\n\n论文：J. Am. Chem. Soc. 2022, 144, 10524-10529\n标题：Acids at the Edge: Why Nitric and Formic Acid Dissociations at Air-Water Interfaces Depend on Depth and on Interface Specific Area\n作者：Miguel de la Puente, Rolf David, Axel Gomez, Damien Laage (École Normale Supérieure-PSL, Paris)\n\n核心方法：用 DeePMD-kit 训练神经网络势（NNP），以 BLYP-D3 为参考级别，通过 metadynamics 沿氢配位数 CV 进行增强采样，计算硝酸和甲酸在空气-水界面不同深度的解离自由能曲线。自由能精度达到 0.1 kcal/mol，计算成本相比 DFT-MD 降低 1000 倍以上。\n\n主要发现：\n1. 界面酸碱性在跨越界面的几个分子层内急剧变化——界面以下的酸性比体相更强，界面以上的酸性比体相更弱\n2. 提出了一个基于酸、共轭碱、水合氢离子溶剂化自由能的局部酸碱性模型（eq 1），定量解释了酸碱性随深度的变化\n3. 该模型解释了 SFG、XPS 和 OESI-MS 看似矛盾的实验结果：差异源于探测深度和体系比表面积的不同\n4. 气溶胶大小依赖的酸碱性变化对大气化学有重要影响\n\n请按照标准结构生成笔记，特别关注：(1) NNP训练策略和数据生成；(2) metadynamics增强采样的CV选择和自由能重构；(3) 局部酸碱性模型的物理含义；(4) 如何桥接模拟与三种实验技术（SFG、XPS、OESI-MS）的结果差异。",
+      "expected_output": "完整的 CTC 论文阅读笔记，包含元信息、TL;DR、方法详解（NNP训练+metadynamics+溶剂化模型）、结果解读、实验对比、专业Q&A",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "分析这篇AIMD方法学论文的模拟方案，帮我生成阅读笔记的\"核心方法\"和\"结果与讨论\"章节。\n\n论文场景：作者用第一性原理分子动力学（AIMD）研究液态水中的质子转移（PT）机理。\n\n模拟设置：\n- 体系：128个水分子 + 1个额外质子，立方盒子（15.6 Å），周期性边界条件\n- 电子结构：CP2K Quickstep, BLYP-D3泛函, DZVP-MOLOPT基组, GTH赝势, 平面波截断400 Ry\n- MD：Born-Oppenheimer MD, NVT系综 (T=300K), Nosé-Hoover热浴, 时间步长0.5 fs\n- 模拟时长：每个轨迹50 ps，共10条独立轨迹，总时长500 ps\n- 分析方法：质子穿梭（proton shuttle）识别、连续质子转移事件统计、氢键网络分析、质子扩散系数\n\n主要发现：\n1. 质子转移以协同跳跃（concerted hopping）为主，而非逐步转移\n2. 氢键网络的预设（pre-solvation）是PT速率的关键决定因素\n3. PT涉及3-4个水分子的集体重排，时间尺度约100 fs\n4. 经典MD（TIP3P + 水合质子模型）无法重现AIMD中的协同机制\n\n请在笔记中对比AIMD与经典力场MD在此问题上的方法差异，分析为什么AIMD能看到协同机制而经典MD不能。",
+      "expected_output": "深度AIMD方法分析笔记，包含电子结构设置、MD参数、与经典MD的对比、协同质子转移机理的解读",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "这是一篇关于机器学习势函数分子动力学模拟气溶胶表面反应的论文，请生成完整的专业阅读笔记。\n\n论文场景：用神经网络势（NNP）分子动力学研究N₂O₅在气溶胶气-液界面的反应摄取（reactive uptake）机理。\n\n核心方法链：\n1. 参考数据生成：revPBE0-D3/def2-TZVP 级别 DFT 计算，覆盖反应物、中间体、产物及各种溶剂化构型\n2. NNP训练：DeepMD-kit, DP-GEN主动学习框架，最终训练集包含50,000+构型\n3. 增强采样：well-tempered metadynamics + OPES（On-the-fly Probability Enhanced Sampling），CV为N₂O₅中N-O键长和NO₂⁺...H₂O距离\n4. 自由能计算：OPES重构2D自由能面，精度~0.3 kcal/mol\n5. 反应动力学：从自由能势垒和过渡态理论估算反应速率\n6. 实验验证：与分子束散射实验的反应几率对比\n\n关键发现：\n- 界面反应速率比体相快10³倍，因为界面降低了反应自由能势垒\n- 反应机理从体相的SN2变为界面的逐步水解机理\n- ML势成功捕捉到了DFT精度不可达（纳秒级别）的长时尺度界面行为\n\n请在笔记中重点分析：(1) 为什么选择revPBE0-D3作为参考级别；(2) DP-GEN主动学习如何保证构型空间覆盖；(3) 二维自由能面的物理图景；(4) ML势MD相比AIMD在此问题上的优势。",
+      "expected_output": "完整的ML势MD论文笔记，覆盖NNP训练策略、增强采样设计、自由能计算、界面反应机理、与实验和方法对比的深度分析",
+      "files": []
+    }
+  ]
+}
